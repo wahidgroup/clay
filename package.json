@@ -1,0 +1,64 @@
+{
+	"name": "@wahidgroup/clay",
+	"version": "0.1.0",
+	"description": "Mold unknown into typed. Shape specs, type inference, coded errors.",
+	"type": "module",
+	"sideEffects": false,
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./guards": {
+			"types": "./dist/guards.d.ts",
+			"default": "./dist/guards.js"
+		},
+		"./errors": {
+			"types": "./dist/errors/index.d.ts",
+			"default": "./dist/errors/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"files": [
+		"LICENSE",
+		"README.md",
+		"dist",
+		"sbom.json"
+	],
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json",
+		"lint": "eslint .",
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"spellcheck": "cspell \"**/*\"",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"smoke": "node --experimental-strip-types ./scripts/smoke-exports.ts",
+		"pack:check": "node --experimental-strip-types ./scripts/check-pack.ts",
+		"prepare": "husky",
+		"prepublishOnly": "make clean-dist && make build && make sbom",
+		"sbom": "cyclonedx-npm --omit dev --package-lock-only --flatten-components --short-PURLs --output-reproducible --output-file sbom.json"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/wahidgroup/clay.git"
+	},
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com"
+	},
+	"license": "MIT",
+	"dependencies": {
+		"decimal.js": "10.6.0"
+	},
+	"devDependencies": {
+		"@cyclonedx/cyclonedx-npm": "6.0.0",
+		"@types/node": "24.0.4",
+		"@wahidgroup/lint-rules": "0.1.0",
+		"cspell": "9.7.0",
+		"eslint": "9.39.2",
+		"husky": "9.1.7",
+		"prettier": "3.8.4",
+		"typescript": "5.9.3",
+		"vitest": "4.1.10"
+	}
+}
