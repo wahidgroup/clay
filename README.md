@@ -314,12 +314,13 @@ try {
 make setup        deps
 make lint         lint + spell (fix=1)
 make test         tests (debug=1)
+make coverage     tests + Cobertura report (coverage/)
 make build        dist/
 make smoke        load dist exports
 make spellcheck   cspell
 make sbom         sbom.json (also shipped in npm pack)
 make pack         assert npm pack is minimal + includes sbom
-make ci           lint → build → test → smoke → pack
+make ci           lint → build → coverage → smoke → pack
 make release      VERSION=v0.2.0 [dry-run=1]
 make clean-dist   wipe dist + artifacts + sbom.json
 make clean        wipe dist + artifacts + sbom + node_modules
@@ -333,7 +334,7 @@ make release VERSION=v0.2.0 dry-run=1
 ## CI
 
 - **PR Checks** - title, body, metadata
-- **CI** - `make ci`, upload SBOM
+- **CI** - `make ci`, upload coverage + SBOM
 - **Audit** - deps + weekly
 - **Release** - tag `releases/v*` -> publish + attach SBOM
 

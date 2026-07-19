@@ -1,10 +1,12 @@
 {
 	"$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/packages/cspell-types/cspell.schema.json",
 	"import": ["@wahidgroup/lint-rules/cspell"],
+	"words": ["Cobertura"],
 	"ignorePaths": [
 		"node_modules",
 		"dist",
 		"artifacts",
+		"coverage",
 		"*.lock",
 		"package-lock.json",
 		"npm-shrinkwrap.json",
