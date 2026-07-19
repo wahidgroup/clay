@@ -1,34 +1,20 @@
 import { Decimal } from "decimal.js";
 import { describe, expect, it } from "vitest";
 
-import type { FieldDef, ShapeResult } from "./shape.js";
+import type { FieldDef } from "./shape.js";
 import { ValidationError } from "./errors/validation-error.js";
-import { isShape, tryShape, tryStrictShape, validateObject } from "./shape.js";
 import {
 	asShape,
 	asStrictShape,
 	assertShape,
 	assertStrictShape,
 } from "./shape-assert.js";
-
-/**
- * Asserts a failed {@link ShapeResult} reports the given issue paths.
- */
-function expectFailurePaths(
-	result: ShapeResult<unknown>,
-	paths: readonly string[],
-): void {
-	expect(result.ok).toBe(false);
-
-	if (result.ok) {
-		throw new Error("expected failure result");
-	}
-
-	const actual = result.issues.map((issue) => issue.path);
-	for (const path of paths) {
-		expect(actual).toContain(path);
-	}
-}
+import { isShape, tryShape, tryStrictShape, validateObject } from "./shape.js";
+import {
+	expectFailurePaths,
+	expectIssueCodes,
+	expectIssuePaths,
+} from "./testing/shape.harness.js";
 
 // ---------------------------------------------------------------------------
 // isShape - predicate guard
@@ -70,20 +56,29 @@ describe("isShape", () => {
 			age: { type: "number", optional: true },
 		} as const;
 
-		it("returns true when optional field is absent", () => {
-			expect(isShape({ name: "Alice" }, spec)).toBe(true);
-		});
-
-		it("returns true when optional field is present and correct", () => {
-			expect(isShape({ name: "Alice", age: 30 }, spec)).toBe(true);
-		});
-
-		it("returns false when optional field has wrong type", () => {
-			expect(isShape({ name: "Alice", age: "thirty" }, spec)).toBe(false);
-		});
-
-		it("returns false when optional field is null without nullable", () => {
-			expect(isShape({ name: "Alice", age: null }, spec)).toBe(false);
+		it.each([
+			{
+				name: "optional field absent",
+				value: { name: "Alice" },
+				ok: true,
+			},
+			{
+				name: "optional field present and correct",
+				value: { name: "Alice", age: 30 },
+				ok: true,
+			},
+			{
+				name: "optional field wrong type",
+				value: { name: "Alice", age: "thirty" },
+				ok: false,
+			},
+			{
+				name: "optional field null without nullable",
+				value: { name: "Alice", age: null },
+				ok: false,
+			},
+		])("$name -> $ok", ({ value, ok }) => {
+			expect(isShape(value, spec)).toBe(ok);
 		});
 	});
 
@@ -98,49 +93,66 @@ describe("isShape", () => {
 			nickname: { type: "string", optional: true, nullable: true },
 		} as const;
 
-		it("returns true when nullable field is null", () => {
-			expect(
-				isShape({ name: "Alice", nickname: null }, requiredNullable),
-			).toBe(true);
-		});
+		const nullableCollections = {
+			tags: { type: "array", items: "string", nullable: true },
+			meta: {
+				type: "object",
+				shape: { key: "string" },
+				nullable: true,
+			},
+		} as const;
 
-		it("returns true when nullable field has a matching value", () => {
-			expect(
-				isShape({ name: "Alice", nickname: "Al" }, requiredNullable),
-			).toBe(true);
-		});
-
-		it("returns false when required nullable field is absent", () => {
-			expect(isShape({ name: "Alice" }, requiredNullable)).toBe(false);
-		});
-
-		it("returns false when non-nullable field is null", () => {
-			expect(isShape({ name: null }, { name: "string" })).toBe(false);
-		});
-
-		it("returns true when optional nullable field is absent", () => {
-			expect(isShape({ name: "Alice" }, optionalNullable)).toBe(true);
-		});
-
-		it("returns true when optional nullable field is null", () => {
-			expect(
-				isShape({ name: "Alice", nickname: null }, optionalNullable),
-			).toBe(true);
-		});
-
-		it("accepts null for nullable arrays and objects", () => {
-			const spec = {
-				tags: { type: "array", items: "string", nullable: true },
-				meta: {
-					type: "object",
-					shape: { key: "string" },
-					nullable: true,
-				},
-			} as const;
-			expect(isShape({ tags: null, meta: null }, spec)).toBe(true);
-			expect(isShape({ tags: ["a"], meta: { key: "v" } }, spec)).toBe(
-				true,
-			);
+		it.each([
+			{
+				name: "required nullable is null",
+				spec: requiredNullable,
+				value: { name: "Alice", nickname: null },
+				ok: true,
+			},
+			{
+				name: "required nullable matching value",
+				spec: requiredNullable,
+				value: { name: "Alice", nickname: "Al" },
+				ok: true,
+			},
+			{
+				name: "required nullable absent",
+				spec: requiredNullable,
+				value: { name: "Alice" },
+				ok: false,
+			},
+			{
+				name: "non-nullable field is null",
+				spec: { name: "string" } as const,
+				value: { name: null },
+				ok: false,
+			},
+			{
+				name: "optional nullable absent",
+				spec: optionalNullable,
+				value: { name: "Alice" },
+				ok: true,
+			},
+			{
+				name: "optional nullable is null",
+				spec: optionalNullable,
+				value: { name: "Alice", nickname: null },
+				ok: true,
+			},
+			{
+				name: "nullable arrays and objects are null",
+				spec: nullableCollections,
+				value: { tags: null, meta: null },
+				ok: true,
+			},
+			{
+				name: "nullable arrays and objects populated",
+				spec: nullableCollections,
+				value: { tags: ["a"], meta: { key: "v" } },
+				ok: true,
+			},
+		])("$name -> $ok", ({ spec, value, ok }) => {
+			expect(isShape(value, spec)).toBe(ok);
 		});
 	});
 
@@ -149,17 +161,17 @@ describe("isShape", () => {
 			tags: { type: "array", items: "string" },
 		} as const;
 
-		it("returns true for valid arrays", () => {
-			expect(isShape({ tags: ["a", "b"] }, spec)).toBe(true);
-			expect(isShape({ tags: [] }, spec)).toBe(true);
-		});
-
-		it("returns false for non-arrays", () => {
-			expect(isShape({ tags: "not-array" }, spec)).toBe(false);
-		});
-
-		it("returns false when an element has the wrong type", () => {
-			expect(isShape({ tags: ["a", 42] }, spec)).toBe(false);
+		it.each([
+			{ name: "filled array", value: { tags: ["a", "b"] }, ok: true },
+			{ name: "empty array", value: { tags: [] }, ok: true },
+			{ name: "non-array", value: { tags: "not-array" }, ok: false },
+			{
+				name: "element wrong type",
+				value: { tags: ["a", 42] },
+				ok: false,
+			},
+		])("$name -> $ok", ({ value, ok }) => {
+			expect(isShape(value, spec)).toBe(ok);
 		});
 	});
 
@@ -171,24 +183,29 @@ describe("isShape", () => {
 			},
 		} as const;
 
-		it("returns true for valid nested objects", () => {
-			expect(
-				isShape({ address: { city: "NYC", zip: "10001" } }, spec),
-			).toBe(true);
-		});
-
-		it("returns false when nested field is missing", () => {
-			expect(isShape({ address: { city: "NYC" } }, spec)).toBe(false);
-		});
-
-		it("returns false when nested field has wrong type", () => {
-			expect(
-				isShape({ address: { city: "NYC", zip: 10001 } }, spec),
-			).toBe(false);
-		});
-
-		it("returns false when nested value is not an object", () => {
-			expect(isShape({ address: "NYC" }, spec)).toBe(false);
+		it.each([
+			{
+				name: "valid nested object",
+				value: { address: { city: "NYC", zip: "10001" } },
+				ok: true,
+			},
+			{
+				name: "nested field missing",
+				value: { address: { city: "NYC" } },
+				ok: false,
+			},
+			{
+				name: "nested field wrong type",
+				value: { address: { city: "NYC", zip: 10001 } },
+				ok: false,
+			},
+			{
+				name: "nested value not an object",
+				value: { address: "NYC" },
+				ok: false,
+			},
+		])("$name -> $ok", ({ value, ok }) => {
+			expect(isShape(value, spec)).toBe(ok);
 		});
 	});
 
@@ -200,14 +217,21 @@ describe("isShape", () => {
 			},
 		} as const;
 
-		it("returns true for matching literals", () => {
-			expect(isShape({ status: "active" }, spec)).toBe(true);
-			expect(isShape({ status: "inactive" }, spec)).toBe(true);
-		});
-
-		it("returns false for non-matching values", () => {
-			expect(isShape({ status: "deleted" }, spec)).toBe(false);
-			expect(isShape({ status: 42 }, spec)).toBe(false);
+		it.each([
+			{ name: "matching active", value: { status: "active" }, ok: true },
+			{
+				name: "matching inactive",
+				value: { status: "inactive" },
+				ok: true,
+			},
+			{
+				name: "non-matching string",
+				value: { status: "deleted" },
+				ok: false,
+			},
+			{ name: "non-matching number", value: { status: 42 }, ok: false },
+		])("$name -> $ok", ({ value, ok }) => {
+			expect(isShape(value, spec)).toBe(ok);
 		});
 	});
 
@@ -220,25 +244,30 @@ describe("isShape", () => {
 			role: { type: "literal", values: ["admin", "user"] as const },
 		} as const;
 
-		it("returns true for a complete valid payload", () => {
-			const payload = {
-				name: "Alice",
-				age: 30,
-				tags: ["dev"],
-				address: { city: "NYC" },
-				role: "admin",
-			};
-			expect(isShape(payload, spec)).toBe(true);
-		});
-
-		it("returns true with optional field omitted", () => {
-			const payload = {
-				name: "Bob",
-				tags: [],
-				address: { city: "LA" },
-				role: "user",
-			};
-			expect(isShape(payload, spec)).toBe(true);
+		it.each([
+			{
+				name: "complete valid payload",
+				value: {
+					name: "Alice",
+					age: 30,
+					tags: ["dev"],
+					address: { city: "NYC" },
+					role: "admin",
+				},
+				ok: true,
+			},
+			{
+				name: "optional field omitted",
+				value: {
+					name: "Bob",
+					tags: [],
+					address: { city: "LA" },
+					role: "user",
+				},
+				ok: true,
+			},
+		])("$name -> $ok", ({ value, ok }) => {
+			expect(isShape(value, spec)).toBe(ok);
 		});
 	});
 });
@@ -372,66 +401,115 @@ describe("tryStrictShape", () => {
 // ---------------------------------------------------------------------------
 
 describe("edge cases", () => {
-	it("validates nested arrays of objects", () => {
-		const spec = {
-			items: {
-				type: "array",
-				items: { type: "object", shape: { name: "string" } },
-			},
-		} as const;
-		expect(isShape({ items: [{ name: "a" }, { name: "b" }] }, spec)).toBe(
-			true,
-		);
-		expect(isShape({ items: [{ name: "a" }, { wrong: "b" }] }, spec)).toBe(
-			false,
-		);
-	});
+	const nestedArray = {
+		items: {
+			type: "array",
+			items: { type: "object", shape: { name: "string" } },
+		},
+	} as const;
 
-	it("validates arrays of literal values", () => {
-		const spec = {
-			roles: {
-				type: "array",
-				items: { type: "literal", values: ["admin", "user"] as const },
-			},
-		} as const;
-		expect(isShape({ roles: ["admin", "user"] }, spec)).toBe(true);
-		expect(isShape({ roles: ["admin", "guest"] }, spec)).toBe(false);
-	});
+	const literalArray = {
+		roles: {
+			type: "array",
+			items: { type: "literal", values: ["admin", "user"] as const },
+		},
+	} as const;
 
-	it("handles deeply nested objects", () => {
-		const spec = {
-			level1: {
-				type: "object",
-				shape: {
-					level2: {
-						type: "object",
-						shape: { value: "number" },
-					},
+	const deepObject = {
+		level1: {
+			type: "object",
+			shape: {
+				level2: {
+					type: "object",
+					shape: { value: "number" },
 				},
 			},
-		} as const;
-		expect(isShape({ level1: { level2: { value: 42 } } }, spec)).toBe(true);
-		expect(isShape({ level1: { level2: { value: "no" } } }, spec)).toBe(
-			false,
-		);
-	});
+		},
+	} as const;
 
-	it("optional array field", () => {
-		const spec = {
-			tags: { type: "array", items: "string", optional: true },
-		} as const;
-		expect(isShape({}, spec)).toBe(true);
-		expect(isShape({ tags: ["a"] }, spec)).toBe(true);
-		expect(isShape({ tags: [42] }, spec)).toBe(false);
-	});
+	const optionalArray = {
+		tags: { type: "array", items: "string", optional: true },
+	} as const;
 
-	it("optional nested object field", () => {
-		const spec = {
-			meta: { type: "object", shape: { key: "string" }, optional: true },
-		} as const;
-		expect(isShape({}, spec)).toBe(true);
-		expect(isShape({ meta: { key: "v" } }, spec)).toBe(true);
-		expect(isShape({ meta: { key: 42 } }, spec)).toBe(false);
+	const optionalObject = {
+		meta: { type: "object", shape: { key: "string" }, optional: true },
+	} as const;
+
+	it.each([
+		{
+			name: "nested arrays of objects valid",
+			spec: nestedArray,
+			value: { items: [{ name: "a" }, { name: "b" }] },
+			ok: true,
+		},
+		{
+			name: "nested arrays of objects invalid element",
+			spec: nestedArray,
+			value: { items: [{ name: "a" }, { wrong: "b" }] },
+			ok: false,
+		},
+		{
+			name: "arrays of literals valid",
+			spec: literalArray,
+			value: { roles: ["admin", "user"] },
+			ok: true,
+		},
+		{
+			name: "arrays of literals invalid element",
+			spec: literalArray,
+			value: { roles: ["admin", "guest"] },
+			ok: false,
+		},
+		{
+			name: "deeply nested object valid",
+			spec: deepObject,
+			value: { level1: { level2: { value: 42 } } },
+			ok: true,
+		},
+		{
+			name: "deeply nested object wrong type",
+			spec: deepObject,
+			value: { level1: { level2: { value: "no" } } },
+			ok: false,
+		},
+		{
+			name: "optional array absent",
+			spec: optionalArray,
+			value: {},
+			ok: true,
+		},
+		{
+			name: "optional array present",
+			spec: optionalArray,
+			value: { tags: ["a"] },
+			ok: true,
+		},
+		{
+			name: "optional array wrong element",
+			spec: optionalArray,
+			value: { tags: [42] },
+			ok: false,
+		},
+		{
+			name: "optional nested object absent",
+			spec: optionalObject,
+			value: {},
+			ok: true,
+		},
+		{
+			name: "optional nested object present",
+			spec: optionalObject,
+			value: { meta: { key: "v" } },
+			ok: true,
+		},
+		{
+			name: "optional nested object wrong type",
+			spec: optionalObject,
+			value: { meta: { key: 42 } },
+			ok: false,
+		},
+	])("$name -> $ok", ({ spec, value, ok }) => {
+		expect(isShape(value, spec)).toBe(ok);
 	});
 });
 
@@ -532,12 +610,7 @@ describe("validateObject", () => {
 		"$name",
 		({ value, spec, strict, prefix, expectedPaths }) => {
 			const issues = validateObject(value, spec, strict, prefix);
-			expect(issues).toHaveLength(expectedPaths.length);
-
-			const paths = issues.map((issue) => issue.path);
-			for (const expected of expectedPaths) {
-				expect(paths).toContain(expected);
-			}
+			expectIssuePaths(issues, expectedPaths);
 		},
 	);
 });
@@ -687,11 +760,10 @@ describe("discriminated fields", () => {
 			expectedPaths: ["event.kind"],
 		},
 	])("$name", ({ value, expectedPaths }) => {
-		const issues = validateObject(value, eventSpec, false);
-		const paths = issues.map((issue) => issue.path);
-		for (const expected of expectedPaths) {
-			expect(paths).toContain(expected);
-		}
+		expectIssuePaths(
+			validateObject(value, eventSpec, false),
+			expectedPaths,
+		);
 	});
 });
 
@@ -798,11 +870,7 @@ describe("array bounds", () => {
 			expectedCodes: ["unique"],
 		},
 	])("$name", ({ value, expectedCodes }) => {
-		const issues = validateObject(value, tags, false);
-		const codes = issues.map((issue) => issue.code);
-		for (const code of expectedCodes) {
-			expect(codes).toContain(code);
-		}
+		expectIssueCodes(validateObject(value, tags, false), expectedCodes);
 	});
 });
 
@@ -857,9 +925,7 @@ describe("number constraints", () => {
 	});
 
 	it("reports range code for bound violations", () => {
-		const issues = validateObject({ age: -1 }, age, false);
-		const codes = issues.map((issue) => issue.code);
-		expect(codes).toContain("range");
+		expectIssueCodes(validateObject({ age: -1 }, age, false), ["range"]);
 	});
 });
 
@@ -912,14 +978,17 @@ describe("refine", () => {
 		},
 	} as const;
 
-	it("accepts values that pass refine", () => {
-		expect(isShape({ n: 4 }, even)).toBe(true);
+	it.each([
+		{ name: "passes refine", value: { n: 4 }, ok: true },
+		{ name: "fails refine", value: { n: 3 }, ok: false },
+	])("$name -> $ok", ({ value, ok }) => {
+		expect(isShape(value, even)).toBe(ok);
 	});
 
 	it("rejects values that fail refine with refine code", () => {
 		const issues = validateObject({ n: 3 }, even, false);
 		expect(issues).toHaveLength(1);
-		expect(issues[0]?.code).toBe("refine");
+		expectIssueCodes(issues, ["refine"]);
 		expect(issues[0]?.message).toContain("must be even");
 	});
 });
@@ -987,9 +1056,9 @@ describe("decimal fields", () => {
 	});
 
 	it("reports range code for decimal bound violations", () => {
-		const issues = validateObject({ amount: "-1" }, amount, false);
-		const codes = issues.map((issue) => issue.code);
-		expect(codes).toContain("range");
+		expectIssueCodes(validateObject({ amount: "-1" }, amount, false), [
+			"range",
+		]);
 	});
 
 	it("rejects exclusiveMinimum violations", () => {

@@ -40,6 +40,19 @@ describe("CodedError", () => {
 		expect(err).toBeInstanceOf(Error);
 		expect(err).toBeInstanceOf(CodedError);
 	});
+
+	it.each([
+		{
+			name: "non-string code",
+			err: { kind: "E_USER", code: 1, message: "msg" },
+		},
+		{
+			name: "non-string message",
+			err: { kind: "E_USER", code: "X", message: 1 },
+		},
+	])("isInstance rejects duck-types with $name", ({ err }) => {
+		expect(UserError.isInstance(err)).toBe(false);
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -216,6 +229,76 @@ describe("isInstance", () => {
 			invariant: false,
 			validation: false,
 			userValidation: true,
+		},
+		{
+			name: "duck-typed issues with non-object item",
+			err: {
+				kind: "E_USER",
+				code: "X",
+				message: "m",
+				issues: ["bad"],
+			},
+			user: true,
+			internal: false,
+			invariant: false,
+			validation: false,
+			userValidation: false,
+		},
+		{
+			name: "duck-typed issues with non-string path",
+			err: {
+				kind: "E_USER",
+				code: "X",
+				message: "m",
+				issues: [{ path: 1, message: "b" }],
+			},
+			user: true,
+			internal: false,
+			invariant: false,
+			validation: false,
+			userValidation: false,
+		},
+		{
+			name: "duck-typed issues with non-string message",
+			err: {
+				kind: "E_USER",
+				code: "X",
+				message: "m",
+				issues: [{ path: "a", message: 1 }],
+			},
+			user: true,
+			internal: false,
+			invariant: false,
+			validation: false,
+			userValidation: false,
+		},
+		{
+			name: "duck-typed issues with non-string code",
+			err: {
+				kind: "E_USER",
+				code: "X",
+				message: "m",
+				issues: [{ path: "a", message: "b", code: 1 }],
+			},
+			user: true,
+			internal: false,
+			invariant: false,
+			validation: false,
+			userValidation: false,
+		},
+		{
+			name: "duck-typed issues with non-string expected",
+			err: {
+				kind: "E_USER",
+				code: "X",
+				message: "m",
+				issues: [{ path: "a", message: "b", expected: 1 }],
+			},
+			user: true,
+			internal: false,
+			invariant: false,
+			validation: false,
+			userValidation: false,
 		},
 	];
 
@@ -490,6 +573,13 @@ describe("UserValidationError", () => {
 					"Field password must be one of [strong, weak], got s3cr3t",
 				],
 			},
+			{
+				name: "empty sensitive string entries do not redact",
+				issues: [{ path: "x", message: "keep secret" }],
+				sensitive: [""],
+				expectedMessage: "Validation failed (1 issue)",
+				expectedIssueMessages: ["keep secret"],
+			},
 		];
 
 		it.each(cases)(
@@ -601,65 +691,6 @@ describe("UserValidationError", () => {
 				cause,
 			);
 			expect(err.cause).toBe(cause);
-		});
-	});
-
-	describe("isInstance", () => {
-		interface GuardCase {
-			name: string;
-			err: unknown;
-			expected: boolean;
-		}
-
-		const cases: GuardCase[] = [
-			{
-				name: "UserValidationError instance",
-				err: new UserValidationError("INPUT", [
-					{ path: "x", message: "y" },
-				]),
-				expected: true,
-			},
-			{
-				name: "plain UserError (no issues)",
-				err: new UserError("X", "msg"),
-				expected: false,
-			},
-			{
-				name: "ValidationError (different kind)",
-				err: new ValidationError("X", [{ path: "x", message: "y" }]),
-				expected: false,
-			},
-			{
-				name: "duck-typed with issues",
-				err: {
-					kind: "E_USER",
-					code: "DUCK",
-					message: "msg",
-					issues: [{ path: "x", message: "y" }],
-				},
-				expected: true,
-			},
-			{
-				name: "duck-typed without issues",
-				err: { kind: "E_USER", code: "DUCK", message: "msg" },
-				expected: false,
-			},
-			{
-				name: "null",
-				err: null,
-				expected: false,
-			},
-		];
-
-		it.each(cases)("$name -> $expected", ({ err, expected }) => {
-			expect(UserValidationError.isInstance(err)).toBe(expected);
-		});
-
-		it("passes parent UserError.isInstance", () => {
-			const err = new UserValidationError("INPUT", [
-				{ path: "x", message: "y" },
-			]);
-			expect(UserError.isInstance(err)).toBe(true);
 		});
 	});
 

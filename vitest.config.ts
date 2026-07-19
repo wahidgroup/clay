@@ -13,7 +13,7 @@ export default defineConfig({
 			reporter: ["text", "cobertura"],
 			reportsDirectory: "coverage",
 			include: ["src/**/*.ts"],
-			exclude: ["src/**/*.test.ts"],
+			exclude: ["src/**/*.test.ts", "src/testing/**"],
 		},
 	},
 	resolve: {
