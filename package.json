@@ -1,6 +1,6 @@
 {
 	"name": "@wahidgroup/clay",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Mold unknown into typed. Shape specs, type inference, coded errors.",
 	"type": "module",
 	"sideEffects": false,
