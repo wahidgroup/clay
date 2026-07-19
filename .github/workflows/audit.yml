@@ -22,6 +22,8 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-latest
+    env:
+      NPM_INSTALL_FLAGS: --ignore-scripts
     steps:
       - uses: actions/checkout@v6
 
@@ -35,7 +37,7 @@ jobs:
         run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> .npmrc
 
       - name: Setup
-        run: make setup NPM_INSTALL_FLAGS=--ignore-scripts
+        run: make setup
 
       - name: Security Audit
         run: make audit
