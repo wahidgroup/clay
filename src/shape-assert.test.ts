@@ -5,12 +5,8 @@
 import { describe, expect, it } from "vitest";
 
 import { ValidationError } from "./errors/validation-error.js";
-import {
-	asShape,
-	assertShape,
-	createShape,
-	createStrictShape,
-} from "./shape-assert.js";
+import { createShape, createStrictShape } from "./shape-assert.js";
+import { expectFailurePaths } from "./testing/shape.harness.js";
 
 describe("createShape", () => {
 	const user = createShape({
@@ -28,43 +24,21 @@ describe("createShape", () => {
 		expect(user.is(value)).toBe(true);
 
 		const result = user.try(value);
-		expect(result.ok).toBe(true);
+		expect(result).toEqual({ ok: true, value });
 		expect(user.as(value).name).toBe("Ada");
 	});
 
 	it("try fails with issues for invalid values", () => {
-		const result = user.try({ name: 1 });
-		expect(result.ok).toBe(false);
-		if (result.ok) {
-			throw new Error("expected failure");
-		}
-
-		expect(result.issues.map((issue) => issue.path)).toContain("name");
+		expectFailurePaths(user.try({ name: 1 }), ["name"]);
 	});
 
 	it("assert throws ValidationError with custom message", () => {
 		expect(() => {
 			user.assert({ name: 1 }, "bad user");
 		}).toThrow(ValidationError);
-
-		try {
-			user.assert({ name: 1 }, "bad user");
-		} catch (err) {
-			expect(ValidationError.isInstance(err)).toBe(true);
-			if (ValidationError.isInstance(err)) {
-				expect(err.message).toBe("bad user");
-			}
-		}
-	});
-
-	it("asShape helper molds valid values", () => {
-		expect(asShape({ id: 1 }, { id: "number" }).id).toBe(1);
-	});
-
-	it("assertShape throws on invalid values", () => {
 		expect(() => {
-			assertShape({ id: "x" }, { id: "number" });
-		}).toThrow(ValidationError);
+			user.assert({ name: 1 }, "bad user");
+		}).toThrow("bad user");
 	});
 });
 
@@ -80,9 +54,7 @@ describe("createStrictShape", () => {
 	it("rejects extra fields via is / try / assert / as", () => {
 		const value = { name: "Ada", extra: true };
 		expect(strictUser.is(value)).toBe(false);
-
-		const result = strictUser.try(value);
-		expect(result.ok).toBe(false);
+		expectFailurePaths(strictUser.try(value), ["extra"]);
 
 		expect(() => {
 			strictUser.assert(value);

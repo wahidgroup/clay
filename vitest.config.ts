@@ -1,5 +1,6 @@
+import { resolve } from "node:path";
+
 import { defineConfig } from "vitest/config";
-import { resolve } from "path";
 
 export default defineConfig({
 	test: {
@@ -7,10 +8,17 @@ export default defineConfig({
 		include: ["src/**/*.test.ts"],
 		exclude: ["node_modules"],
 		root: ".",
+		coverage: {
+			provider: "v8",
+			reporter: ["text", "cobertura"],
+			reportsDirectory: "coverage",
+			include: ["src/**/*.ts"],
+			exclude: ["src/**/*.test.ts", "src/testing/**"],
+		},
 	},
 	resolve: {
 		alias: {
-			"@": resolve(__dirname, "./src"),
+			"@": resolve(import.meta.dirname, "./src"),
 		},
 	},
 });

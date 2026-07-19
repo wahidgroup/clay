@@ -1,17 +1,18 @@
 # clay
 
-**Mold unknown into typed.**
-
-Shape specs, type inference, coded errors.
+Runtime shape validation and type guards for TypeScript. Spec objects infer static types; failures produce structured issues. Works in Node 24+ and modern browsers. Depends on `decimal.js` for `decimal` fields.
 
 ```typescript
 import { createShape } from "@wahidgroup/clay";
+import type { ShapeOf } from "@wahidgroup/clay";
 
 const User = createShape({
 	name: "string",
 	age: { type: "number", integer: true, minimum: 0, optional: true },
 	nickname: { type: "string", nullable: true },
 } as const);
+
+type User = ShapeOf<typeof User.fields>;
 
 const user = User.as(payload);
 // user.name: string
@@ -25,9 +26,11 @@ const user = User.as(payload);
 npm install @wahidgroup/clay
 ```
 
-## Mold a form
+GitHub Packages: configure the `@wahidgroup` registry.
 
-`createShape` -> `is` / `try` / `assert` / `as`:
+## Validate
+
+`createShape` returns `{ is, try, assert, as }`:
 
 ```typescript
 import { createShape } from "@wahidgroup/clay";
@@ -56,14 +59,14 @@ if (result.ok) {
 }
 
 User.assert(payload); // throws ValidationError
-const user = User.as(payload);
+const user = User.as(payload); // mold
 ```
 
-`optional` = omit. `nullable` = `null`. Not the same.
+`optional` means the key may be omitted. `nullable` means the value may be `null`. They are independent.
 
-Flat helpers: `isShape`, `tryShape`, `asShape`, `assertShape` (+ strict variants). See [API](#api).
+One-shot helpers: `isShape`, `tryShape`, `asShape`, `assertShape`, plus strict variants. See [API](#api).
 
-## Strict forms
+## Strict
 
 Extra keys fail:
 
@@ -147,9 +150,7 @@ Payment.is({
 });
 ```
 
-`decimal` ships with `decimal.js`. Bare `number` off unless `allowNumber: true`. Works in browser and Node.
-
-Tree-shake-friendly imports: `@wahidgroup/clay/guards`, `@wahidgroup/clay/errors` (no shape / decimal load). Package ships `sideEffects: false`.
+Bare `number` for `decimal` is rejected unless `allowNumber: true`.
 
 ## Type guards
 
@@ -176,7 +177,7 @@ if (isOneOf(value, statuses)) {
 
 ## Errors
 
-`CodedError` base: `kind` + `code`, `isInstance`, `toJSON`.
+`CodedError` base: `kind` + `code`, duck-typed `isInstance`, `toJSON`.
 
 ```typescript
 import { UserError, InternalError } from "@wahidgroup/clay";
@@ -189,15 +190,9 @@ throw new InternalError("DB_TIMEOUT", "Connection timed out", cause);
 if (UserError.isInstance(err)) {
 	/* err.kind === "E_USER" */
 }
-
-if (InternalError.isInstance(err)) {
-	/* err.kind === "E_INTERNAL" */
-}
 ```
 
-### ValidationError
-
-`assert` / `as` failure. All issues kept:
+`assert` / `as` throw `ValidationError` with all issues:
 
 ```typescript
 import { createShape, ValidationError } from "@wahidgroup/clay";
@@ -215,75 +210,53 @@ try {
 }
 ```
 
-### UserValidationError
+`UserValidationError` redacts sensitive strings from messages and issue fields. `errorMessage(err)` extracts a string from unknown throwables.
 
-Redacts sensitive strings from messages / issue values:
+## Package entrypoints
 
-```typescript
-import { UserValidationError } from "@wahidgroup/clay";
+| Import                    | Contents                              |
+| ------------------------- | ------------------------------------- |
+| `@wahidgroup/clay`        | full public API                       |
+| `@wahidgroup/clay/guards` | guards only                           |
+| `@wahidgroup/clay/errors` | error types only (no shape / decimal) |
 
-throw new UserValidationError(
-	"REGISTRATION",
-	issues,
-	["p@ssw0rd"],
-	"Registration failed",
-);
-```
-
-### errorMessage
-
-```typescript
-import { errorMessage } from "@wahidgroup/clay";
-
-try {
-	riskyOperation();
-} catch (err) {
-	log(errorMessage(err));
-}
-```
-
-## Docs words
-
-| Word | Means                  |
-| ---- | ---------------------- |
-| mold | `asShape` / `Form.as`  |
-| form | field spec / `ShapeOf` |
+Package sets `sideEffects: false`.
 
 ## API
 
 ### Values
 
-| Export                | Module         | What                         |
-| --------------------- | -------------- | ---------------------------- |
-| `isString`            | `guards`       | -> `string`                  |
-| `isNumber`            | `guards`       | -> `number`                  |
-| `isBoolean`           | `guards`       | -> `boolean`                 |
-| `isNonNull`           | `guards`       | not null/undefined           |
-| `isDefined`           | `guards`       | not undefined                |
-| `isArray`             | `guards`       | -> `unknown[]`               |
-| `isError`             | `guards`       | -> `Error`                   |
-| `isRecord`            | `guards`       | -> `Record<string, unknown>` |
-| `hasProperties`       | `guards`       | keys present                 |
-| `isOneOf`             | `guards`       | literal union member         |
-| `isSystemError`       | `guards`       | `Error` + `code`             |
-| `assertNever`         | `guards`       | exhaustive check             |
-| `isShape`             | `shape`        | soft predicate               |
-| `tryShape`            | `shape`        | value or issues              |
-| `tryStrictShape`      | `shape`        | strict try                   |
-| `Decimal`             | `shape`        | re-export `decimal.js`       |
-| `assertShape`         | `shape-assert` | throw on fail                |
-| `assertStrictShape`   | `shape-assert` | strict assert                |
-| `asShape`             | `shape-assert` | value or throw               |
-| `asStrictShape`       | `shape-assert` | strict as                    |
-| `createShape`         | `shape-assert` | `{ is, try, assert, as }`    |
-| `createStrictShape`   | `shape-assert` | strict create                |
-| `CodedError`          | `errors`       | `kind` / `code` base         |
-| `UserError`           | `errors`       | user-facing                  |
-| `InternalError`       | `errors`       | internal                     |
-| `InvariantError`      | `errors`       | invariant break              |
-| `ValidationError`     | `errors`       | shape issues                 |
-| `UserValidationError` | `errors`       | redacted issues              |
-| `errorMessage`        | `errors`       | message from unknown         |
+| Export                | Module         | What                      |
+| --------------------- | -------------- | ------------------------- |
+| `isString`            | `guards`       | narrow to `string`        |
+| `isNumber`            | `guards`       | narrow to `number`        |
+| `isBoolean`           | `guards`       | narrow to `boolean`       |
+| `isNonNull`           | `guards`       | not null/undefined        |
+| `isDefined`           | `guards`       | not undefined             |
+| `isArray`             | `guards`       | narrow to `unknown[]`     |
+| `isError`             | `guards`       | narrow to `Error`         |
+| `isRecord`            | `guards`       | `Record<string, unknown>` |
+| `hasProperties`       | `guards`       | own keys present          |
+| `isOneOf`             | `guards`       | literal union member      |
+| `isSystemError`       | `guards`       | `Error` with `code`       |
+| `assertNever`         | `guards`       | exhaustive check          |
+| `isShape`             | `shape`        | soft predicate            |
+| `tryShape`            | `shape`        | value or issues           |
+| `tryStrictShape`      | `shape`        | strict try                |
+| `Decimal`             | `shape`        | re-export `decimal.js`    |
+| `assertShape`         | `shape-assert` | throw on fail             |
+| `assertStrictShape`   | `shape-assert` | strict assert             |
+| `asShape`             | `shape-assert` | value or throw            |
+| `asStrictShape`       | `shape-assert` | strict as                 |
+| `createShape`         | `shape-assert` | `{ is, try, assert, as }` |
+| `createStrictShape`   | `shape-assert` | strict create             |
+| `CodedError`          | `errors`       | `kind` / `code` base      |
+| `UserError`           | `errors`       | user-facing               |
+| `InternalError`       | `errors`       | internal                  |
+| `InvariantError`      | `errors`       | invariant break           |
+| `ValidationError`     | `errors`       | shape issues              |
+| `UserValidationError` | `errors`       | redacted issues           |
+| `errorMessage`        | `errors`       | message from unknown      |
 
 ### Types
 
@@ -314,29 +287,21 @@ try {
 make setup        deps
 make lint         lint + spell (fix=1)
 make test         tests (debug=1)
+make coverage     tests + Cobertura report (coverage/)
 make build        dist/
 make smoke        load dist exports
 make spellcheck   cspell
 make sbom         sbom.json (also shipped in npm pack)
 make pack         assert npm pack is minimal + includes sbom
-make ci           lint → build → test → smoke → pack
-make release      VERSION=v0.2.0 [dry-run=1]
+make ci           lint, build, coverage, smoke, pack
+make release      version=v0.2.0 [dry-run=1]
 make clean-dist   wipe dist + artifacts + sbom.json
 make clean        wipe dist + artifacts + sbom + node_modules
 ```
 
 ```bash
-make release VERSION=v0.2.0
-make release VERSION=v0.2.0 dry-run=1
+make release version=v0.2.0
+make release version=v0.2.0 dry-run=1
 ```
 
-## CI
-
-- **PR Checks** - title, body, metadata
-- **CI** - `make ci`, upload SBOM
-- **Audit** - deps + weekly
-- **Release** - tag `releases/v*` -> publish + attach SBOM
-
-## Stack
-
-TypeScript 5.9+, Vitest, ESLint 9, Prettier.
+CI runs `make ci`, uploads coverage and SBOM. See also PR checks, weekly audit, and tag-driven release under `.github/workflows/`.

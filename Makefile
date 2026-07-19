@@ -1,4 +1,4 @@
-.PHONY: all help help-body help-ref version setup lint test build audit spellcheck sbom smoke pack ci release clean clean-dist
+.PHONY: all help help-body help-ref version setup lint test coverage build audit spellcheck sbom smoke pack ci release clean clean-dist
 
 .NOTPARALLEL: ci
 
@@ -57,13 +57,14 @@ help-body:
 	@printf '    setup        Install dependencies\n'
 	@printf '    lint         Run linters + spellcheck (fix mode via fix=1)\n'
 	@printf '    test         Run tests (debug logs via debug=1)\n'
+	@printf '    coverage     Run tests with Cobertura coverage report\n'
 	@printf '    build        Build for production\n'
 	@printf '    smoke        Smoke-load built package exports\n'
 	@printf '    pack         Assert npm pack contents (minimal + sbom)\n'
 	@printf '    audit        Run security audit (fix mode via fix=1)\n'
 	@printf '    spellcheck   Run spell checker\n'
 	@printf '    sbom         Generate software bill of materials\n'
-	@printf '    ci           Lint + build + test + smoke + pack\n'
+	@printf '    ci           Lint + build + coverage + smoke + pack\n'
 	@printf '    release      Release workflow (see OPTIONS)\n'
 	@printf '    clean-dist   Remove dist and artifacts\n'
 	@printf '    clean        Remove artifacts and node_modules\n\n'
@@ -121,6 +122,10 @@ test: setup
 	@echo "Running tests..."
 	npm run test
 
+coverage: setup
+	@echo "Running tests with coverage..."
+	npm run test:coverage
+
 build: setup
 	@echo "Building..."
 	npm run build
@@ -153,7 +158,7 @@ pack: build sbom
 ci:
 	$(MAKE) lint
 	$(MAKE) build
-	$(MAKE) test
+	$(MAKE) coverage
 	$(MAKE) smoke
 	$(MAKE) pack
 
