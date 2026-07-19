@@ -53,12 +53,15 @@
 	"devDependencies": {
 		"@cyclonedx/cyclonedx-npm": "6.0.0",
 		"@types/node": "24.0.4",
-		"@wahidgroup/lint-rules": "0.1.0",
+		"@wahidgroup/lint-rules": "0.1.1",
 		"cspell": "9.7.0",
 		"eslint": "9.39.2",
 		"husky": "9.1.7",
 		"prettier": "3.8.4",
 		"typescript": "5.9.3",
 		"vitest": "4.1.10"
+	},
+	"engines": {
+		"node": ">=24"
 	}
 }

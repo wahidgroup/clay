@@ -16,9 +16,11 @@ coverage/
 # Generated artifacts
 artifacts/
 sbom.json
+*.tgz
 
 # Dev
 .dev/
+.make/
 
 # Logs
 *.log

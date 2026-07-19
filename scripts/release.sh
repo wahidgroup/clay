@@ -4,17 +4,11 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Project detection
 # ---------------------------------------------------------------------------
-if [[ -f package.json ]]; then
-	PROJECT_NAME="$(node -p "require('./package.json').name" 2>/dev/null || echo 'unknown')"
-else
-	PROJECT_NAME="$(git remote get-url origin 2>/dev/null \
-		| sed -e 's|.*/||' -e 's|.*:||' -e 's/\.git$//' || echo 'unknown')"
-fi
+PROJECT_NAME="$(git remote get-url origin 2>/dev/null \
+	| sed -e 's|.*/||' -e 's/\.git$//' || echo 'unknown')"
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-MAIN_BRANCH="main"
+# Default development branch (forward releases cut from here)
+DEFAULT_BRANCH="main"
 
 # ---------------------------------------------------------------------------
 # Colors and formatting
@@ -64,12 +58,7 @@ detect_version() {
 
 bump_version() {
 	local version="$1"
-	local src
-	src="$(detect_version_source)"
-	if [[ -z "$src" ]]; then
-		fail "No version source found (expected package.json or VERSION)"
-	fi
-	case "$src" in
+	case "$(detect_version_source)" in
 		npm)
 			npm version "$version" --no-git-tag-version --allow-same-version
 			git add package.json
@@ -89,12 +78,8 @@ bump_version() {
 # ---------------------------------------------------------------------------
 
 compile_changelog() {
-	if [[ -n "${CHANGELOG:-}" && "${1:-}" != "force" ]]; then
+	if [[ -n "${CHANGELOG:-}" ]]; then
 		return 0
-	fi
-
-	if ! command -v jq &>/dev/null; then
-		fail "jq is required to compile release notes (install jq)"
 	fi
 
 	local last_tag
@@ -276,8 +261,6 @@ resolve_submodule_ref() {
 	local name="$1"
 	local ref="$2"
 
-	git submodule update --init "$name" --quiet
-
 	if ! git -C "$name" diff --quiet || ! git -C "$name" diff --cached --quiet; then
 		fail "${name}: has uncommitted changes"
 	fi
@@ -398,9 +381,9 @@ ensure_release_branch() {
 		done < <(git tag --list "releases/v${major}.*" --sort=-v:refname)
 		if [[ -z "$base_tag" ]]; then
 			# No lower minor line exists (always true for a new .0 line):
-			# cut from main, per the standard "release lines branch from main" model
-			git fetch origin "$MAIN_BRANCH" --quiet
-			base_tag="origin/${MAIN_BRANCH}"
+			# cut from DEFAULT_BRANCH, per the standard release-lines model
+			git fetch origin "$DEFAULT_BRANCH" --quiet
+			base_tag="origin/${DEFAULT_BRANCH}"
 		fi
 	fi
 
@@ -412,10 +395,10 @@ ensure_release_branch() {
 interactive_cherry_pick() {
 	local release_branch="$1"
 
-	git fetch origin "$MAIN_BRANCH" --quiet
+	git fetch origin "$DEFAULT_BRANCH" --quiet
 	local commits
 	commits=$(git log --oneline --cherry-pick --right-only \
-		"${release_branch}...origin/${MAIN_BRANCH}" --no-merges 2>/dev/null || true)
+		"${release_branch}...origin/${DEFAULT_BRANCH}" --no-merges 2>/dev/null || true)
 
 	if [[ -z "$commits" ]]; then
 		info "No commits available to cherry-pick since ${release_branch}"
@@ -440,7 +423,7 @@ interactive_cherry_pick() {
 			lines+=("$line")
 		done <<< "$commits"
 
-		printf "\n  Commits on %s since %s:\n\n" "$MAIN_BRANCH" "$release_branch"
+		printf "\n  Commits on %s since %s:\n\n" "$DEFAULT_BRANCH" "$release_branch"
 		for i in "${!lines[@]}"; do
 			printf "    %d) %s\n" "$((i + 1))" "${lines[$i]}"
 		done
@@ -475,7 +458,7 @@ interactive_cherry_pick() {
 			fail "Cherry-pick conflict on ${line}
         Resolve the conflict, then resume:
           git cherry-pick --continue
-          make release v${VERSION}"
+          make release version=v${VERSION}"
 		fi
 		ok "Cherry-picked ${line}"
 	done <<< "$selected"
@@ -526,13 +509,9 @@ if [[ -n "$REPO_DIR" ]]; then
 	if [[ ! -d "$REPO_DIR/.git" && ! -f "$REPO_DIR/.git" ]]; then
 		fail "${REPO_DIR} is not a git repository (run 'make setup' first)"
 	fi
+	PROJECT_NAME="$(git -C "$REPO_DIR" remote get-url origin 2>/dev/null \
+		| sed -e 's|.*/||' -e 's/\.git$//')"
 	cd "$REPO_DIR"
-	if [[ -f package.json ]]; then
-		PROJECT_NAME="$(node -p "require('./package.json').name" 2>/dev/null || echo 'unknown')"
-	else
-		PROJECT_NAME="$(git remote get-url origin 2>/dev/null \
-			| sed -e 's|.*/||' -e 's|.*:||' -e 's/\.git$//' || echo 'unknown')"
-	fi
 	ok "Targeting submodule: ${PROJECT_NAME} ($(pwd))"
 fi
 
@@ -601,7 +580,7 @@ ok "Semver format valid: ${VERSION}"
 # ---------------------------------------------------------------------------
 IFS='.' read -r SV_MAJOR SV_MINOR SV_PATCH <<< "$VERSION"
 RELEASE_MODE="forward"
-PR_BASE="$MAIN_BRANCH"
+PR_BASE="$DEFAULT_BRANCH"
 RELEASE_BRANCH=""
 
 git fetch origin --tags --quiet 2>/dev/null || true
@@ -639,12 +618,12 @@ fi
 # Yank workflow (early exit)
 # ---------------------------------------------------------------------------
 if [[ "$YANK" == true ]]; then
-	if [[ -n "$(git ls-remote --tags origin "refs/tags/${YANKED_TAG}" 2>/dev/null)" ]]; then
+	if git ls-remote --tags origin "$YANKED_TAG" 2>/dev/null | grep -q "$YANKED_TAG"; then
 		ok "Version v${VERSION} is already yanked (${YANKED_TAG} exists)"
 		exit 0
 	fi
 
-	if [[ -z "$(git ls-remote --tags origin "refs/tags/${TAG}" 2>/dev/null)" ]]; then
+	if ! git ls-remote --tags origin "$TAG" 2>/dev/null | grep -q "$TAG"; then
 		fail "Release tag ${TAG} does not exist on remote - nothing to yank"
 	fi
 
@@ -688,7 +667,7 @@ RESUME_STATE="fresh"
 
 header "Detecting release state..."
 
-if [[ -n "$(git ls-remote --tags origin "refs/tags/${TAG}" 2>/dev/null)" ]]; then
+if git ls-remote --tags origin "$TAG" 2>/dev/null | grep -q "$TAG"; then
 	ok "Release v${VERSION} already complete (tag ${TAG} exists on remote)"
 	exit 0
 fi
@@ -715,14 +694,35 @@ elif git branch --list "$BRANCH" | grep -q "$BRANCH"; then
 		RESUME_STATE="local"
 		git checkout "$BRANCH" --quiet
 		info "[resume] Local branch ${BRANCH} found, resuming after cherry-pick..."
-	elif [[ -n "$(git rev-list "${PR_BASE}..${BRANCH}" 2>/dev/null)" ]]; then
-		RESUME_STATE="local"
-		git checkout "$BRANCH" --quiet
-		info "[resume] Local branch ${BRANCH} has un-pushed commits, resuming..."
 	else
-		info "[cleanup] Removed stale local branch, starting fresh..."
-		git checkout "$MAIN_BRANCH" 2>/dev/null || true
-		git branch -D "$BRANCH" 2>/dev/null || true
+		# Forward: inspect tip without checkout first.
+		tip_subject=$(git log -1 --pretty=%s "$BRANCH" 2>/dev/null || true)
+		tip_version=""
+		if git cat-file -e "${BRANCH}:package.json" 2>/dev/null; then
+			tip_version=$(git show "${BRANCH}:package.json" \
+				| node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version" 2>/dev/null || true)
+		elif git cat-file -e "${BRANCH}:VERSION" 2>/dev/null; then
+			tip_version=$(git show "${BRANCH}:VERSION" | tr -d '\n' || true)
+		fi
+
+		# Matching tip + dirty tree must fail (not delete).
+		if [[ "$tip_subject" == "chore(release):"* && "$tip_version" == "$VERSION" ]]; then
+			if ! git diff --quiet --ignore-submodules \
+				|| ! git diff --cached --quiet --ignore-submodules; then
+				fail "Working tree has uncommitted changes; clean tree required to resume ${BRANCH}"
+			fi
+			if ! git checkout "$BRANCH" --quiet; then
+				fail "Could not checkout ${BRANCH} to resume release"
+			fi
+			RESUME_STATE="local"
+			info "[resume] Local branch ${BRANCH} found, resuming forward release..."
+		else
+			info "[cleanup] Removed stale local branch, starting fresh..."
+			if [[ "$(git branch --show-current 2>/dev/null)" == "$BRANCH" ]]; then
+				git checkout "$DEFAULT_BRANCH" 2>/dev/null || true
+			fi
+			git branch -D "$BRANCH" 2>/dev/null || true
+		fi
 	fi
 fi
 
@@ -743,7 +743,7 @@ fi
 if [[ "$RESUME_STATE" == "fresh" && "$RELEASE_MODE" == "forward" && -n "$CURRENT_VERSION" ]]; then
 	cmp=$(semver_compare "$VERSION" "$CURRENT_VERSION")
 	if [[ "$cmp" == "eq" ]]; then
-		if [[ -n "$(git ls-remote --tags origin "refs/tags/${TAG}" 2>/dev/null)" ]]; then
+		if git ls-remote --tags origin "$TAG" 2>/dev/null | grep -q "$TAG"; then
 			fail "Already released v${VERSION}"
 		fi
 		info "Version already at ${VERSION} - resuming incomplete release"
@@ -759,7 +759,7 @@ if [[ ( "$RESUME_STATE" == "fresh" || "$RESUME_STATE" == "local" ) && "$RELEASE_
 		LINE_VER="${LINE_TAG#releases/v}"
 		line_cmp=$(semver_compare "$VERSION" "$LINE_VER")
 		if [[ "$line_cmp" == "eq" ]]; then
-			if [[ -n "$(git ls-remote --tags origin "refs/tags/${TAG}" 2>/dev/null)" ]]; then
+			if git ls-remote --tags origin "$TAG" 2>/dev/null | grep -q "$TAG"; then
 				fail "Already released v${VERSION} on ${RELEASE_BRANCH}"
 			fi
 			info "Version already at ${VERSION} on ${RELEASE_BRANCH} - resuming incomplete release"
@@ -850,21 +850,23 @@ if [[ "$RESUME_STATE" == "fresh" || "$RESUME_STATE" == "local" ]]; then
 		ok "Working tree is clean (excluding submodules)"
 	fi
 
+	# Fresh forward only: must start from up-to-date DEFAULT_BRANCH.
+	# Local resume is already on process/v* with a matching release tip.
 	if [[ "$RELEASE_MODE" == "forward" && "$RESUME_STATE" == "fresh" ]]; then
 		CURRENT_BRANCH=$(git branch --show-current)
-		if [[ "$CURRENT_BRANCH" == "$MAIN_BRANCH" ]]; then
-			ok "On branch ${MAIN_BRANCH}"
+		if [[ "$CURRENT_BRANCH" == "$DEFAULT_BRANCH" ]]; then
+			ok "On branch ${DEFAULT_BRANCH}"
 		else
-			fail "Must be on branch ${MAIN_BRANCH} (currently on ${CURRENT_BRANCH})"
+			fail "Must be on branch ${DEFAULT_BRANCH} (currently on ${CURRENT_BRANCH})"
 		fi
 
-		git fetch origin "$MAIN_BRANCH" --quiet
+		git fetch origin "$DEFAULT_BRANCH" --quiet
 		LOCAL_SHA=$(git rev-parse HEAD)
-		REMOTE_SHA=$(git rev-parse "origin/${MAIN_BRANCH}")
+		REMOTE_SHA=$(git rev-parse "origin/${DEFAULT_BRANCH}")
 		if [[ "$LOCAL_SHA" == "$REMOTE_SHA" ]]; then
-			ok "${MAIN_BRANCH} is up to date with origin/${MAIN_BRANCH}"
+			ok "${DEFAULT_BRANCH} is up to date with origin/${DEFAULT_BRANCH}"
 		else
-			fail "${MAIN_BRANCH} is not up to date with origin/${MAIN_BRANCH} (pull or push first)"
+			fail "${DEFAULT_BRANCH} is not up to date with origin/${DEFAULT_BRANCH} (pull or push first)"
 		fi
 	fi
 
@@ -959,9 +961,6 @@ if [[ "$RESUME_STATE" == "fresh" || "$RESUME_STATE" == "local" || "$RESUME_STATE
 	if [[ "$RESUME_STATE" == "fresh" || "$RESUME_STATE" == "local" ]]; then
 		git push -u origin "$BRANCH"
 		ok "Branch pushed to origin"
-	elif [[ "$RESUME_STATE" == "pr" ]] && git branch --list "$BRANCH" | grep -q "$BRANCH"; then
-		git push origin "$BRANCH"
-		ok "Local branch changes pushed to origin"
 	fi
 
 	compile_changelog
@@ -985,18 +984,9 @@ if [[ "$RESUME_STATE" == "fresh" || "$RESUME_STATE" == "local" || "$RESUME_STATE
 		fi
 	done < <({ printf 'release\n'; printf '%s\n' "${RELEASE_LABELS:-}"; } | sort -u)
 
-	EXISTING_PR=$(gh pr list --head "$BRANCH" --state open \
-		--json number --jq '.[0].number' 2>/dev/null || true)
-	if [[ -n "$EXISTING_PR" ]]; then
-		PR_NUMBER="$EXISTING_PR"
-		PR_URL=$(gh pr view "$PR_NUMBER" --json url --jq .url 2>/dev/null || true)
-		gh pr edit "$PR_NUMBER" --title "chore(release): v${VERSION}" --body "$CHANGELOG" >/dev/null
-		ok "Reusing existing PR #${PR_NUMBER} (refreshed release notes)"
-	else
-		PR_URL=$(gh pr create "${PR_CREATE_ARGS[@]}")
-		PR_NUMBER="${PR_URL##*/}"
-		ok "PR #${PR_NUMBER} created: ${PR_URL}"
-	fi
+	PR_URL=$(gh pr create "${PR_CREATE_ARGS[@]}")
+	PR_NUMBER="${PR_URL##*/}"
+	ok "PR #${PR_NUMBER} created: ${PR_URL}"
 fi
 
 # ---------------------------------------------------------------------------
@@ -1023,7 +1013,7 @@ step $STEP "Create signed tag"
 if [[ -n "$(git tag --list "$TAG")" ]]; then
 	ok "Tag ${TAG} already exists locally - skipping creation"
 else
-	compile_changelog force
+	compile_changelog
 	git tag -s -a "$TAG" -m "$CHANGELOG"
 	ok "Tag ${TAG} created (signed)"
 fi
