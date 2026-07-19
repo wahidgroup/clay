@@ -637,6 +637,16 @@ describe("union fields", () => {
 		},
 	} as const;
 
+	const constrainedNumberOrString = {
+		value: {
+			type: "union",
+			of: [
+				{ type: "number", integer: true, minimum: 10, multipleOf: 5 },
+				"string",
+			] as const,
+		},
+	} as const;
+
 	it.each([
 		{
 			name: "accepts first arm",
@@ -685,6 +695,30 @@ describe("union fields", () => {
 			} as const,
 			value: { value: null },
 			ok: true,
+		},
+		{
+			name: "constrained number arm accepts in-range integer",
+			spec: constrainedNumberOrString,
+			value: { value: 15 },
+			ok: true,
+		},
+		{
+			name: "constrained number arm falls through to string",
+			spec: constrainedNumberOrString,
+			value: { value: "ok" },
+			ok: true,
+		},
+		{
+			name: "constrained number arm rejects below minimum number",
+			spec: constrainedNumberOrString,
+			value: { value: 5 },
+			ok: false,
+		},
+		{
+			name: "constrained number arm rejects non-multiple",
+			spec: constrainedNumberOrString,
+			value: { value: 12 },
+			ok: false,
 		},
 	])("$name", ({ spec, value, ok }) => {
 		expect(isShape(value, spec)).toBe(ok);
@@ -1085,16 +1119,24 @@ describe("decimal fields", () => {
 		expect(isShape({ amount: "9999" }, spec)).toBe(false);
 	});
 
-	it("rejects non-finite Decimal and allowNumber NaN", () => {
-		expect(isShape({ amount: new Decimal(Number.NaN) }, amount)).toBe(
-			false,
-		);
-		expect(
-			isShape(
-				{ amount: Number.NaN },
-				{ amount: { type: "decimal", allowNumber: true } },
-			),
-		).toBe(false);
+	it.each([
+		{
+			name: "NaN Decimal instance",
+			value: { amount: new Decimal(Number.NaN) },
+			spec: amount,
+		},
+		{
+			name: "Infinity decimal string",
+			value: { amount: "Infinity" },
+			spec: amount,
+		},
+		{
+			name: "allowNumber NaN",
+			value: { amount: Number.NaN },
+			spec: { amount: { type: "decimal", allowNumber: true } } as const,
+		},
+	])("rejects non-finite input ($name)", ({ value, spec }) => {
+		expect(isShape(value, spec)).toBe(false);
 	});
 
 	it("rejects oversized decimal strings before coerce", () => {
