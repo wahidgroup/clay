@@ -22,20 +22,22 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-latest
+    env:
+      NPM_INSTALL_FLAGS: --ignore-scripts
     steps:
       - uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Configure GitHub Packages Auth
         run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> .npmrc
 
       - name: Setup
-        run: make setup NPM_INSTALL_FLAGS=--ignore-scripts
+        run: make setup
 
       - name: Security Audit
         run: make audit

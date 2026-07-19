@@ -22,7 +22,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           registry-url: https://npm.pkg.github.com
           scope: ${{ steps.pkg.outputs.scope }}
           package-manager-cache: false
@@ -43,7 +43,7 @@ jobs:
           CURRENT=$(node -p "require('./package.json').version")
           if [ "$CURRENT" != "$VERSION" ]; then
             echo "package.json version (${CURRENT}) does not match tag (${VERSION})"
-            echo "Bump package.json on main via make release before tagging."
+            echo "Bump package.json on main via make release version=v${VERSION} before tagging."
             exit 1
           fi
 
