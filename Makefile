@@ -42,12 +42,6 @@ ifeq ($(strip $(RELEASE_VERSION)),)
 RELEASE_VERSION := $(VERSION)
 endif
 
-ifdef CI
-NPM_INSTALL_CMD := npm ci
-else
-NPM_INSTALL_CMD := npm install
-endif
-
 help:
 	$(call PRINT_PAGER,$(MAKE) help-body)
 
