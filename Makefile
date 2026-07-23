@@ -25,22 +25,7 @@ ifneq ($(filter 1,$(debug)),)
 export LOG_LEVEL = debug
 endif
 
-RELEASE_FLAGS :=
-ifneq ($(filter 1,$(dry-run)),)
-RELEASE_FLAGS += --dry-run
-endif
-ifneq ($(filter 1,$(allow-staged)),)
-RELEASE_FLAGS += --allow-staged
-endif
-ifneq ($(filter 1,$(yank)),)
-RELEASE_FLAGS += --yank
-endif
-
-# Prefer version= (veneer); accept VERSION= for back-compat
 RELEASE_VERSION := $(version)
-ifeq ($(strip $(RELEASE_VERSION)),)
-RELEASE_VERSION := $(VERSION)
-endif
 
 help:
 	$(call PRINT_PAGER,$(MAKE) help-body)
@@ -71,7 +56,7 @@ help-body:
 	@printf 'OPTIONS / VARIABLES:\n'
 	@printf '    fix                If set (e.g., fix=1), apply lint/audit fixes\n'
 	@printf '    debug              If set (e.g., debug=1), enable debug logs for tests\n'
-	@printf '    version            Release version (e.g., version=v0.2.0; VERSION= also accepted)\n'
+	@printf '    version            Release version (e.g., version=v0.2.0)\n'
 	@printf '    dry-run            If set (e.g., dry-run=1), preview release without changes\n'
 	@printf '    allow-staged       If set (e.g., allow-staged=1), include staged files in release\n'
 	@printf '    yank               If set (e.g., yank=1), yank a published version\n'
@@ -163,7 +148,10 @@ ci:
 	$(MAKE) pack
 
 release: setup
-	@./scripts/release.sh "$(RELEASE_VERSION)" $(RELEASE_FLAGS)
+	@DRY_RUN="$(if $(filter 1,$(dry-run)),1,)" \
+		ALLOW_STAGED="$(if $(filter 1,$(allow-staged)),1,)" \
+		YANK="$(if $(filter 1,$(yank)),1,)" \
+		./scripts/release.sh "$(RELEASE_VERSION)"
 
 clean-dist:
 	rm -rf dist artifacts sbom.json
