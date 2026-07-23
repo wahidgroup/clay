@@ -162,7 +162,7 @@ function drain(ctx: ValidateCtx): void {
 			break;
 		}
 
-		let cont = true;
+		let cont: boolean;
 		if (current.kind === "object") {
 			cont = processObjectWork(ctx, current);
 		} else {
@@ -303,7 +303,7 @@ function processFieldWork(ctx: ValidateCtx, current: FieldWorkItem): boolean {
 		);
 	}
 
-	let ok = true;
+	let ok: boolean;
 
 	if (
 		current.spec.type === "string" ||
