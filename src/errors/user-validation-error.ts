@@ -35,10 +35,7 @@ function redact(text: string, sensitive: readonly string[]): string {
  * Non-string `value` is dropped when a sensitive list is active so
  * nested or opaque payloads cannot bypass substring redaction.
  */
-function redactIssue(
-	issue: ValidationIssue,
-	sensitive: readonly string[],
-): ValidationIssue {
+function redactIssue(issue: ValidationIssue, sensitive: readonly string[]): ValidationIssue {
 	const message = redact(issue.message, sensitive);
 	let redacted: ValidationIssue = {
 		path: issue.path,

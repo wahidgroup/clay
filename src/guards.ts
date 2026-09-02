@@ -87,10 +87,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
  * Duck-type guard that checks whether `value` is a non-null object
  * containing all of the specified keys.
  */
-export function hasProperties<K extends string>(
-	value: unknown,
-	...keys: K[]
-): value is Record<K, unknown> {
+export function hasProperties<K extends string>(value: unknown, ...keys: K[]): value is Record<K, unknown> {
 	if (!isRecord(value)) {
 		return false;
 	}
@@ -111,10 +108,7 @@ export function hasProperties<K extends string>(
 /**
  * Narrows `value` to a member of a readonly literal tuple.
  */
-export function isOneOf<T extends string | number | boolean>(
-	value: unknown,
-	values: readonly T[],
-): value is T {
+export function isOneOf<T extends string | number | boolean>(value: unknown, values: readonly T[]): value is T {
 	for (const candidate of values) {
 		if (value === candidate) {
 			return true;

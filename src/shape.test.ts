@@ -3,18 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import type { FieldDef } from "./shape.js";
 import { ValidationError } from "./errors/validation-error.js";
-import {
-	asShape,
-	asStrictShape,
-	assertShape,
-	assertStrictShape,
-} from "./shape-assert.js";
+import { asShape, asStrictShape, assertShape, assertStrictShape } from "./shape-assert.js";
 import { isShape, tryShape, tryStrictShape, validateObject } from "./shape.js";
-import {
-	expectFailurePaths,
-	expectIssueCodes,
-	expectIssuePaths,
-} from "./testing/shape.harness.js";
+import { expectFailurePaths, expectIssueCodes, expectIssuePaths } from "./testing/shape.harness.js";
 
 // ---------------------------------------------------------------------------
 // isShape - predicate guard
@@ -305,24 +296,18 @@ describe("assertStrictShape", () => {
 	});
 
 	it("throws when extra fields are present", () => {
-		expect(() =>
-			assertStrictShape({ name: "x", extra: true }, spec),
-		).toThrow(ValidationError);
+		expect(() => assertStrictShape({ name: "x", extra: true }, spec)).toThrow(ValidationError);
 	});
 
 	it("rejects extras recursively in nested objects", () => {
 		const nested = {
 			inner: { type: "object", shape: { a: "string" } },
 		} as const;
-		expect(() =>
-			assertStrictShape({ inner: { a: "x", b: "y" } }, nested),
-		).toThrow(ValidationError);
+		expect(() => assertStrictShape({ inner: { a: "x", b: "y" } }, nested)).toThrow(ValidationError);
 	});
 
 	it("uses custom message when provided", () => {
-		expect(() =>
-			assertStrictShape({ name: "x", extra: 1 }, spec, "strict"),
-		).toThrow("strict");
+		expect(() => assertStrictShape({ name: "x", extra: 1 }, spec, "strict")).toThrow("strict");
 	});
 });
 
@@ -352,9 +337,7 @@ describe("asStrictShape", () => {
 	});
 
 	it("throws when extra fields are present", () => {
-		expect(() => asStrictShape({ id: 1, extra: true }, spec)).toThrow(
-			ValidationError,
-		);
+		expect(() => asStrictShape({ id: 1, extra: true }, spec)).toThrow(ValidationError);
 	});
 });
 
@@ -606,13 +589,10 @@ describe("validateObject", () => {
 		},
 	];
 
-	it.each(cases)(
-		"$name",
-		({ value, spec, strict, prefix, expectedPaths }) => {
-			const issues = validateObject(value, spec, strict, prefix);
-			expectIssuePaths(issues, expectedPaths);
-		},
-	);
+	it.each(cases)("$name", ({ value, spec, strict, prefix, expectedPaths }) => {
+		const issues = validateObject(value, spec, strict, prefix);
+		expectIssuePaths(issues, expectedPaths);
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -640,10 +620,7 @@ describe("union fields", () => {
 	const constrainedNumberOrString = {
 		value: {
 			type: "union",
-			of: [
-				{ type: "number", integer: true, minimum: 10, multipleOf: 5 },
-				"string",
-			] as const,
+			of: [{ type: "number", integer: true, minimum: 10, multipleOf: 5 }, "string"] as const,
 		},
 	} as const;
 
@@ -794,10 +771,7 @@ describe("discriminated fields", () => {
 			expectedPaths: ["event.kind"],
 		},
 	])("$name", ({ value, expectedPaths }) => {
-		expectIssuePaths(
-			validateObject(value, eventSpec, false),
-			expectedPaths,
-		);
+		expectIssuePaths(validateObject(value, eventSpec, false), expectedPaths);
 	});
 });
 
@@ -1090,9 +1064,7 @@ describe("decimal fields", () => {
 	});
 
 	it("reports range code for decimal bound violations", () => {
-		expectIssueCodes(validateObject({ amount: "-1" }, amount, false), [
-			"range",
-		]);
+		expectIssueCodes(validateObject({ amount: "-1" }, amount, false), ["range"]);
 	});
 
 	it("rejects exclusiveMinimum violations", () => {

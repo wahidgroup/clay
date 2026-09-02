@@ -31,7 +31,6 @@ compute_setup_hash() {
 		"${SHA256_CMD[@]}" \
 			"$ROOT/package.json" \
 			"$ROOT/package-lock.json" \
-			"$ROOT/scripts/setup.sh" \
 			2>/dev/null
 		printf 'npm-cmd:%s\n' "$NPM_INSTALL_CMD"
 		printf 'npm-flags:%s\n' "${NPM_INSTALL_FLAGS:-}"
