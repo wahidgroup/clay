@@ -92,8 +92,8 @@ acquire_lock() {
 }
 
 ensure_npm() {
-	if ! command -v jq >/dev/null 2>&1; then
-		echo "ERROR: jq is required on PATH." >&2
+	if ! command -v node >/dev/null 2>&1; then
+		echo "ERROR: node is required on PATH." >&2
 		exit 1
 	fi
 	if ! command -v npm >/dev/null 2>&1; then
@@ -105,7 +105,7 @@ ensure_npm() {
 	local floor
 	local version
 	local major
-	range="$(jq -r '.engines.npm // empty' "$ROOT/package.json")"
+	range="$(node -p '(require(process.argv[1]).engines || {}).npm || ""' "$ROOT/package.json")"
 	if [ -z "$range" ]; then
 		echo "ERROR: package.json engines.npm is required." >&2
 		exit 1
