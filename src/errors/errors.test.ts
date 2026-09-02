@@ -157,9 +157,7 @@ describe("isInstance", () => {
 		},
 		{
 			name: "UserValidationError",
-			err: new UserValidationError("INPUT", [
-				{ path: "x", message: "bad" },
-			]),
+			err: new UserValidationError("INPUT", [{ path: "x", message: "bad" }]),
 			user: true,
 			internal: false,
 			invariant: false,
@@ -322,11 +320,7 @@ describe("consumer extensibility", () => {
 	const ENTRY_CODES = ["INVALID_NAME", "INVALID_EMAIL"] as const;
 
 	class InvalidEntryError extends UserError {
-		constructor(
-			code: (typeof ENTRY_CODES)[number],
-			message: string,
-			cause?: unknown,
-		) {
+		constructor(code: (typeof ENTRY_CODES)[number], message: string, cause?: unknown) {
 			super(code, message, cause);
 		}
 
@@ -443,19 +437,16 @@ describe("ValidationError", () => {
 		},
 	];
 
-	it.each(cases)(
-		"$name",
-		({ code, issues, message, cause, expectedMessage }) => {
-			const err = new ValidationError(code, issues, message, cause);
-			expect(err.message).toBe(expectedMessage);
-			expect(err.kind).toBe("E_VALIDATION");
-			expect(err.qualifiedCode).toBe(`E_VALIDATION_${code}`);
-			expect(err.issues).toEqual(issues);
-			expect(err.cause).toBe(cause);
-			expect(err).toBeInstanceOf(CodedError);
-			expect(err).toBeInstanceOf(Error);
-		},
-	);
+	it.each(cases)("$name", ({ code, issues, message, cause, expectedMessage }) => {
+		const err = new ValidationError(code, issues, message, cause);
+		expect(err.message).toBe(expectedMessage);
+		expect(err.kind).toBe("E_VALIDATION");
+		expect(err.qualifiedCode).toBe(`E_VALIDATION_${code}`);
+		expect(err.issues).toEqual(issues);
+		expect(err.cause).toBe(cause);
+		expect(err).toBeInstanceOf(CodedError);
+		expect(err).toBeInstanceOf(Error);
+	});
 
 	it("toJSON includes issues and round-trips", () => {
 		const err = new ValidationError("SHAPE_MISMATCH", twoIssues);
@@ -503,9 +494,7 @@ describe("UserValidationError", () => {
 				name: "single issue - singular default message",
 				issues: [emailIssue],
 				expectedMessage: "Validation failed (1 issue)",
-				expectedIssueMessages: [
-					"Field email must be string, got number",
-				],
+				expectedIssueMessages: ["Field email must be string, got number"],
 			},
 			{
 				name: "multiple issues - plural default message",
@@ -549,9 +538,7 @@ describe("UserValidationError", () => {
 			},
 			{
 				name: "redacts multiple sensitive values",
-				issues: [
-					{ path: "auth", message: "got token123 and secret456" },
-				],
+				issues: [{ path: "auth", message: "got token123 and secret456" }],
 				sensitive: ["token123", "secret456"],
 				expectedMessage: "Validation failed (1 issue)",
 				expectedIssueMessages: ["got **** and ****"],
@@ -582,27 +569,13 @@ describe("UserValidationError", () => {
 			},
 		];
 
-		it.each(cases)(
-			"$name",
-			({
-				issues,
-				sensitive,
-				message,
-				expectedMessage,
-				expectedIssueMessages,
-			}) => {
-				const err = new UserValidationError(
-					"INPUT",
-					issues,
-					sensitive,
-					message,
-				);
-				expect(err.message).toBe(expectedMessage);
+		it.each(cases)("$name", ({ issues, sensitive, message, expectedMessage, expectedIssueMessages }) => {
+			const err = new UserValidationError("INPUT", issues, sensitive, message);
+			expect(err.message).toBe(expectedMessage);
 
-				const messages = err.issues.map((i) => i.message);
-				expect(messages).toEqual(expectedIssueMessages);
-			},
-		);
+			const messages = err.issues.map((i) => i.message);
+			expect(messages).toEqual(expectedIssueMessages);
+		});
 
 		it("redacts sensitive strings from issue value fields", () => {
 			const err = new UserValidationError(
@@ -683,22 +656,14 @@ describe("UserValidationError", () => {
 
 		it("chains cause", () => {
 			const cause = new Error("root");
-			const err = new UserValidationError(
-				"INPUT",
-				baseIssues,
-				undefined,
-				undefined,
-				cause,
-			);
+			const err = new UserValidationError("INPUT", baseIssues, undefined, undefined, cause);
 			expect(err.cause).toBe(cause);
 		});
 	});
 
 	describe("toJSON", () => {
 		it("includes redacted issues in serialized output", () => {
-			const issues: ValidationIssue[] = [
-				{ path: "pw", message: "got secret123" },
-			];
+			const issues: ValidationIssue[] = [{ path: "pw", message: "got secret123" }];
 
 			const err = new UserValidationError("INPUT", issues, ["secret123"]);
 			const json = err.toJSON();
@@ -709,9 +674,7 @@ describe("UserValidationError", () => {
 		});
 
 		it("round-trips through JSON.stringify with redaction intact", () => {
-			const issues: ValidationIssue[] = [
-				{ path: "token", message: "bad value abc123" },
-			];
+			const issues: ValidationIssue[] = [{ path: "token", message: "bad value abc123" }];
 
 			const err = new UserValidationError("AUTH", issues, ["abc123"]);
 			const parsed: unknown = JSON.parse(JSON.stringify(err));

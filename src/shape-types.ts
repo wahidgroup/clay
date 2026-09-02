@@ -185,10 +185,7 @@ type InferDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8];
  * Infers the TypeScript type for a single `FieldDef` before
  * applying nullability.
  */
-type InferFieldDefBase<
-	F extends FieldDef,
-	D extends number,
-> = F extends PrimitiveType
+type InferFieldDefBase<F extends FieldDef, D extends number> = F extends PrimitiveType
 	? PrimitiveMap[F]
 	: F extends PrimitiveFieldSpec
 		? PrimitiveMap[F["type"]]
@@ -227,9 +224,7 @@ type InferDiscriminated<F extends DiscriminatedFieldSpec> = {
 /**
  * Adds `| null` when the field spec sets `nullable: true`.
  */
-type ApplyNullable<F extends FieldDef, T> = F extends { nullable: true }
-	? T | null
-	: T;
+type ApplyNullable<F extends FieldDef, T> = F extends { nullable: true } ? T | null : T;
 
 /**
  * Infers the TypeScript type for a single `FieldDef`.
@@ -245,22 +240,13 @@ type InferFieldDef<F extends FieldDef, D extends number = 8> = D extends never
  * `Record<string, unknown>` so extra fields are permitted.
  * When `S` is `true` (strict mode) only declared fields are present.
  */
-export type ShapeOf<
-	F extends Record<string, FieldDef>,
-	S extends boolean = false,
-> = {
-	[K in keyof F as IsOptional<F[K]> extends true ? never : K]: InferFieldDef<
-		F[K]
-	>;
+export type ShapeOf<F extends Record<string, FieldDef>, S extends boolean = false> = {
+	[K in keyof F as IsOptional<F[K]> extends true ? never : K]: InferFieldDef<F[K]>;
 } & {
-	[K in keyof F as IsOptional<F[K]> extends true ? K : never]?: InferFieldDef<
-		F[K]
-	>;
+	[K in keyof F as IsOptional<F[K]> extends true ? K : never]?: InferFieldDef<F[K]>;
 } & (S extends true ? unknown : Record<string, unknown>);
 
 /**
  * Determines whether a field def is marked optional.
  */
-type IsOptional<F extends FieldDef> = F extends { optional: true }
-	? true
-	: false;
+type IsOptional<F extends FieldDef> = F extends { optional: true } ? true : false;

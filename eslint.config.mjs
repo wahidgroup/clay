@@ -6,10 +6,7 @@ export default defineConfig(...base, ...strict, {
 	languageOptions: {
 		parserOptions: {
 			projectService: {
-				allowDefaultProject: [
-					"eslint.config.mjs",
-					"prettier.config.mjs",
-				],
+				allowDefaultProject: ["eslint.config.mjs", "prettier.config.mjs"],
 			},
 			tsconfigRootDir: import.meta.dirname,
 		},

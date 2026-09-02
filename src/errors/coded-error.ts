@@ -77,11 +77,7 @@ export abstract class CodedError extends Error {
 	 * Checks `kind`, `code`, and `message` string fields, confirms
 	 * `kind` matches, then runs an optional extra predicate.
 	 */
-	static isInstance(
-		err: unknown,
-		kind: string,
-		extra?: (err: object) => boolean,
-	): boolean {
+	static isInstance(err: unknown, kind: string, extra?: (err: object) => boolean): boolean {
 		if (typeof err !== "object" || err === null) {
 			return false;
 		}

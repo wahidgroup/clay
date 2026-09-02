@@ -101,6 +101,7 @@ else
 	npm run format:check
 	npm run lint
 endif
+	for script in .husky/pre-push scripts/*.sh; do bash -n "$$script" || exit; done
 	npm run spellcheck
 
 test: setup

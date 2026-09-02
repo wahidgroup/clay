@@ -146,6 +146,4 @@ if (failed) {
 	process.exit(1);
 }
 
-console.log(
-	`ok pack matches files (${packed.length} paths, ${allowEntries.length} files entries)`,
-);
+console.log(`ok pack matches files (${packed.length} paths, ${allowEntries.length} files entries)`);

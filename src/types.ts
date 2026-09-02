@@ -8,10 +8,4 @@
  * Represents any value that survives a JSON round-trip. Useful for payloads
  * and serialization boundaries.
  */
-export type JsonValue =
-	| string
-	| number
-	| boolean
-	| null
-	| { [key: string]: JsonValue }
-	| JsonValue[];
+export type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[];

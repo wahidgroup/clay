@@ -5,10 +5,7 @@
  * them to fully typed objects.
  */
 
-import type {
-	ValidationIssue,
-	ValidationIssueCode,
-} from "./errors/validation-issue.js";
+import type { ValidationIssue, ValidationIssueCode } from "./errors/validation-issue.js";
 import type {
 	ArrayFieldSpec,
 	DecimalFieldSpec,
@@ -179,12 +176,7 @@ function drain(ctx: ValidateCtx): void {
 /**
  * True when `value` conforms to `spec` (iterative probe, first failure).
  */
-function matches(
-	value: unknown,
-	spec: FieldSpec,
-	path: string,
-	strict: boolean,
-): boolean {
+function matches(value: unknown, spec: FieldSpec, path: string, strict: boolean): boolean {
 	const ctx: ValidateCtx = {
 		issues: [],
 		stack: [{ kind: "field", value, spec, path }],
@@ -274,10 +266,7 @@ function processObjectWork(ctx: ValidateCtx, current: ObjectWorkItem): boolean {
 		}
 
 		const fieldPath = childPath(current.path, key);
-		const ok = noteIssue(
-			ctx,
-			makeIssue(fieldPath, "unexpected", "is not allowed"),
-		);
+		const ok = noteIssue(ctx, makeIssue(fieldPath, "unexpected", "is not allowed"));
 		if (!ok) {
 			return false;
 		}
@@ -305,11 +294,7 @@ function processFieldWork(ctx: ValidateCtx, current: FieldWorkItem): boolean {
 
 	let ok: boolean;
 
-	if (
-		current.spec.type === "string" ||
-		current.spec.type === "number" ||
-		current.spec.type === "boolean"
-	) {
+	if (current.spec.type === "string" || current.spec.type === "number" || current.spec.type === "boolean") {
 		ok = processPrimitive(ctx, current);
 	} else if (current.spec.type === "decimal") {
 		ok = processDecimal(ctx, current, current.spec);
@@ -332,10 +317,7 @@ function processFieldWork(ctx: ValidateCtx, current: FieldWorkItem): boolean {
 	} else if (current.spec.type === "discriminated") {
 		ok = processDiscriminated(ctx, current, current.spec);
 	} else {
-		return noteIssue(
-			ctx,
-			makeIssue(current.path, "spec", "has an unknown field spec type"),
-		);
+		return noteIssue(ctx, makeIssue(current.path, "spec", "has an unknown field spec type"));
 	}
 
 	if (!ok) {
@@ -348,12 +330,7 @@ function processFieldWork(ctx: ValidateCtx, current: FieldWorkItem): boolean {
 /**
  * Runs an optional `refine` predicate after structural checks.
  */
-function applyRefine(
-	ctx: ValidateCtx,
-	path: string,
-	value: unknown,
-	spec: FieldSpec,
-): boolean {
+function applyRefine(ctx: ValidateCtx, path: string, value: unknown, spec: FieldSpec): boolean {
 	if (!spec.refine) {
 		return true;
 	}
@@ -374,25 +351,16 @@ function applyRefine(
  */
 function processPrimitive(ctx: ValidateCtx, current: FieldWorkItem): boolean {
 	const spec = current.spec;
-	if (
-		spec.type !== "string" &&
-		spec.type !== "number" &&
-		spec.type !== "boolean"
-	) {
+	if (spec.type !== "string" && spec.type !== "number" && spec.type !== "boolean") {
 		return true;
 	}
 
 	if (typeof current.value !== spec.type) {
 		return noteIssue(
 			ctx,
-			makeIssue(
-				current.path,
-				"type",
-				`must be ${spec.type}, got ${typeof current.value}`,
-				{
-					expected: spec.type,
-				},
-			),
+			makeIssue(current.path, "type", `must be ${spec.type}, got ${typeof current.value}`, {
+				expected: spec.type,
+			}),
 		);
 	}
 	if (spec.type === "number") {
@@ -433,12 +401,7 @@ function isMultipleOf(value: number, multipleOf: number): boolean {
 /**
  * Number integer / range / multipleOf constraints.
  */
-function processNumberConstraints(
-	ctx: ValidateCtx,
-	path: string,
-	value: number,
-	spec: PrimitiveFieldSpec,
-): boolean {
+function processNumberConstraints(ctx: ValidateCtx, path: string, value: number, spec: PrimitiveFieldSpec): boolean {
 	let ok = true;
 
 	if (spec.integer && !Number.isInteger(value)) {
@@ -453,40 +416,24 @@ function processNumberConstraints(
 		}
 	}
 
-	if (
-		spec.exclusiveMinimum !== undefined &&
-		!(value > spec.exclusiveMinimum)
-	) {
+	if (spec.exclusiveMinimum !== undefined && !(value > spec.exclusiveMinimum)) {
 		ok = noteIssue(
 			ctx,
-			makeIssue(
-				path,
-				"range",
-				`must be greater than ${spec.exclusiveMinimum}`,
-				{
-					expected: `>${spec.exclusiveMinimum}`,
-				},
-			),
+			makeIssue(path, "range", `must be greater than ${spec.exclusiveMinimum}`, {
+				expected: `>${spec.exclusiveMinimum}`,
+			}),
 		);
 		if (!ok) {
 			return false;
 		}
 	}
 
-	if (
-		spec.exclusiveMaximum !== undefined &&
-		!(value < spec.exclusiveMaximum)
-	) {
+	if (spec.exclusiveMaximum !== undefined && !(value < spec.exclusiveMaximum)) {
 		ok = noteIssue(
 			ctx,
-			makeIssue(
-				path,
-				"range",
-				`must be less than ${spec.exclusiveMaximum}`,
-				{
-					expected: `<${spec.exclusiveMaximum}`,
-				},
-			),
+			makeIssue(path, "range", `must be less than ${spec.exclusiveMaximum}`, {
+				expected: `<${spec.exclusiveMaximum}`,
+			}),
 		);
 		if (!ok) {
 			return false;
@@ -517,20 +464,12 @@ function processNumberConstraints(
 		}
 	}
 
-	if (
-		spec.multipleOf !== undefined &&
-		!isMultipleOf(value, spec.multipleOf)
-	) {
+	if (spec.multipleOf !== undefined && !isMultipleOf(value, spec.multipleOf)) {
 		ok = noteIssue(
 			ctx,
-			makeIssue(
-				path,
-				"range",
-				`must be a multiple of ${spec.multipleOf}`,
-				{
-					expected: `multipleOf:${spec.multipleOf}`,
-				},
-			),
+			makeIssue(path, "range", `must be a multiple of ${spec.multipleOf}`, {
+				expected: `multipleOf:${spec.multipleOf}`,
+			}),
 		);
 		if (!ok) {
 			return false;
@@ -552,26 +491,16 @@ function matchesPattern(value: string, pattern: RegExp): boolean {
 /**
  * String length / pattern constraints.
  */
-function processStringConstraints(
-	ctx: ValidateCtx,
-	path: string,
-	value: string,
-	spec: PrimitiveFieldSpec,
-): boolean {
+function processStringConstraints(ctx: ValidateCtx, path: string, value: string, spec: PrimitiveFieldSpec): boolean {
 	let ok = true;
 	const length = value.length;
 
 	if (spec.minLength !== undefined && length < spec.minLength) {
 		ok = noteIssue(
 			ctx,
-			makeIssue(
-				path,
-				"length",
-				`must have length >= ${spec.minLength}, got ${length}`,
-				{
-					expected: `minLength:${spec.minLength}`,
-				},
-			),
+			makeIssue(path, "length", `must have length >= ${spec.minLength}, got ${length}`, {
+				expected: `minLength:${spec.minLength}`,
+			}),
 		);
 		if (!ok) {
 			return false;
@@ -581,14 +510,9 @@ function processStringConstraints(
 	if (spec.maxLength !== undefined && length > spec.maxLength) {
 		ok = noteIssue(
 			ctx,
-			makeIssue(
-				path,
-				"length",
-				`must have length <= ${spec.maxLength}, got ${length}`,
-				{
-					expected: `maxLength:${spec.maxLength}`,
-				},
-			),
+			makeIssue(path, "length", `must have length <= ${spec.maxLength}, got ${length}`, {
+				expected: `maxLength:${spec.maxLength}`,
+			}),
 		);
 		if (!ok) {
 			return false;
@@ -618,10 +542,7 @@ const MAX_DECIMAL_INPUT_CHARS = 4096;
 /**
  * Parses a decimal input. Returns `null` when the value is not accepted.
  */
-function parseDecimalInput(
-	value: unknown,
-	allowNumber: boolean,
-): Decimal | null {
+function parseDecimalInput(value: unknown, allowNumber: boolean): Decimal | null {
 	if (value instanceof Decimal) {
 		if (!value.isFinite()) {
 			return null;
@@ -695,11 +616,7 @@ function decimalTotalDigits(value: Decimal): number {
 /**
  * Decimal type, bounds, and digit constraints.
  */
-function processDecimal(
-	ctx: ValidateCtx,
-	current: FieldWorkItem,
-	spec: DecimalFieldSpec,
-): boolean {
+function processDecimal(ctx: ValidateCtx, current: FieldWorkItem, spec: DecimalFieldSpec): boolean {
 	let allowNumber = false;
 	if (spec.allowNumber) {
 		allowNumber = true;
@@ -709,14 +626,9 @@ function processDecimal(
 	if (!parsed) {
 		return noteIssue(
 			ctx,
-			makeIssue(
-				current.path,
-				"type",
-				"must be a decimal (Decimal or numeric string)",
-				{
-					expected: "decimal",
-				},
-			),
+			makeIssue(current.path, "type", "must be a decimal (Decimal or numeric string)", {
+				expected: "decimal",
+			}),
 		);
 	}
 
@@ -727,14 +639,9 @@ function processDecimal(
 		if (bound && !parsed.gt(bound)) {
 			ok = noteIssue(
 				ctx,
-				makeIssue(
-					current.path,
-					"range",
-					`must be greater than ${bound.toString()}`,
-					{
-						expected: `>${bound.toString()}`,
-					},
-				),
+				makeIssue(current.path, "range", `must be greater than ${bound.toString()}`, {
+					expected: `>${bound.toString()}`,
+				}),
 			);
 			if (!ok) {
 				return false;
@@ -747,14 +654,9 @@ function processDecimal(
 		if (bound && !parsed.lt(bound)) {
 			ok = noteIssue(
 				ctx,
-				makeIssue(
-					current.path,
-					"range",
-					`must be less than ${bound.toString()}`,
-					{
-						expected: `<${bound.toString()}`,
-					},
-				),
+				makeIssue(current.path, "range", `must be less than ${bound.toString()}`, {
+					expected: `<${bound.toString()}`,
+				}),
 			);
 			if (!ok) {
 				return false;
@@ -767,14 +669,9 @@ function processDecimal(
 		if (bound && parsed.lt(bound)) {
 			ok = noteIssue(
 				ctx,
-				makeIssue(
-					current.path,
-					"range",
-					`must be >= ${bound.toString()}`,
-					{
-						expected: `>=${bound.toString()}`,
-					},
-				),
+				makeIssue(current.path, "range", `must be >= ${bound.toString()}`, {
+					expected: `>=${bound.toString()}`,
+				}),
 			);
 			if (!ok) {
 				return false;
@@ -787,14 +684,9 @@ function processDecimal(
 		if (bound && parsed.gt(bound)) {
 			ok = noteIssue(
 				ctx,
-				makeIssue(
-					current.path,
-					"range",
-					`must be <= ${bound.toString()}`,
-					{
-						expected: `<=${bound.toString()}`,
-					},
-				),
+				makeIssue(current.path, "range", `must be <= ${bound.toString()}`, {
+					expected: `<=${bound.toString()}`,
+				}),
 			);
 			if (!ok) {
 				return false;
@@ -802,40 +694,24 @@ function processDecimal(
 		}
 	}
 
-	if (
-		spec.fractionDigits !== undefined &&
-		parsed.decimalPlaces() > spec.fractionDigits
-	) {
+	if (spec.fractionDigits !== undefined && parsed.decimalPlaces() > spec.fractionDigits) {
 		ok = noteIssue(
 			ctx,
-			makeIssue(
-				current.path,
-				"range",
-				`must have at most ${spec.fractionDigits} fraction digits`,
-				{
-					expected: `fractionDigits:${spec.fractionDigits}`,
-				},
-			),
+			makeIssue(current.path, "range", `must have at most ${spec.fractionDigits} fraction digits`, {
+				expected: `fractionDigits:${spec.fractionDigits}`,
+			}),
 		);
 		if (!ok) {
 			return false;
 		}
 	}
 
-	if (
-		spec.totalDigits !== undefined &&
-		decimalTotalDigits(parsed) > spec.totalDigits
-	) {
+	if (spec.totalDigits !== undefined && decimalTotalDigits(parsed) > spec.totalDigits) {
 		ok = noteIssue(
 			ctx,
-			makeIssue(
-				current.path,
-				"range",
-				`must have at most ${spec.totalDigits} significant digits`,
-				{
-					expected: `totalDigits:${spec.totalDigits}`,
-				},
-			),
+			makeIssue(current.path, "range", `must have at most ${spec.totalDigits} significant digits`, {
+				expected: `totalDigits:${spec.totalDigits}`,
+			}),
 		);
 		if (!ok) {
 			return false;
@@ -848,23 +724,12 @@ function processDecimal(
 /**
  * Reports duplicate array elements in O(n) via SameValueZero (`Set`).
  */
-function processUniqueItems(
-	ctx: ValidateCtx,
-	path: string,
-	values: readonly unknown[],
-): boolean {
+function processUniqueItems(ctx: ValidateCtx, path: string, values: readonly unknown[]): boolean {
 	const seen = new Set<unknown>();
 	for (let i = 0; i < values.length; i++) {
 		const item = values[i];
 		if (seen.has(item)) {
-			const ok = noteIssue(
-				ctx,
-				makeIssue(
-					`${path}[${i}]`,
-					"unique",
-					"must be unique within the array",
-				),
-			);
+			const ok = noteIssue(ctx, makeIssue(`${path}[${i}]`, "unique", "must be unique within the array"));
 			if (!ok) {
 				return false;
 			}
@@ -881,11 +746,7 @@ function processUniqueItems(
 /**
  * Array type, bounds, uniqueness, then enqueue element checks.
  */
-function processArray(
-	ctx: ValidateCtx,
-	current: FieldWorkItem,
-	spec: ArrayFieldSpec,
-): boolean {
+function processArray(ctx: ValidateCtx, current: FieldWorkItem, spec: ArrayFieldSpec): boolean {
 	if (!Array.isArray(current.value)) {
 		return noteIssue(
 			ctx,
@@ -899,14 +760,9 @@ function processArray(
 	if (spec.minItems !== undefined && length < spec.minItems) {
 		const ok = noteIssue(
 			ctx,
-			makeIssue(
-				current.path,
-				"length",
-				`must have at least ${spec.minItems} items, got ${length}`,
-				{
-					expected: `minItems:${spec.minItems}`,
-				},
-			),
+			makeIssue(current.path, "length", `must have at least ${spec.minItems} items, got ${length}`, {
+				expected: `minItems:${spec.minItems}`,
+			}),
 		);
 		if (!ok) {
 			return false;
@@ -916,14 +772,9 @@ function processArray(
 	if (spec.maxItems !== undefined && length > spec.maxItems) {
 		const ok = noteIssue(
 			ctx,
-			makeIssue(
-				current.path,
-				"length",
-				`must have at most ${spec.maxItems} items, got ${length}`,
-				{
-					expected: `maxItems:${spec.maxItems}`,
-				},
-			),
+			makeIssue(current.path, "length", `must have at most ${spec.maxItems} items, got ${length}`, {
+				expected: `maxItems:${spec.maxItems}`,
+			}),
 		);
 		if (!ok) {
 			return false;
@@ -953,11 +804,7 @@ function processArray(
 /**
  * Fixed-length tuple with per-index specs.
  */
-function processTuple(
-	ctx: ValidateCtx,
-	current: FieldWorkItem,
-	spec: TupleFieldSpec,
-): boolean {
+function processTuple(ctx: ValidateCtx, current: FieldWorkItem, spec: TupleFieldSpec): boolean {
 	if (!Array.isArray(current.value)) {
 		return noteIssue(
 			ctx,
@@ -971,14 +818,9 @@ function processTuple(
 	if (current.value.length !== expectedLength) {
 		const ok = noteIssue(
 			ctx,
-			makeIssue(
-				current.path,
-				"length",
-				`must have length ${expectedLength}, got ${current.value.length}`,
-				{
-					expected: `length:${expectedLength}`,
-				},
-			),
+			makeIssue(current.path, "length", `must have length ${expectedLength}, got ${current.value.length}`, {
+				expected: `length:${expectedLength}`,
+			}),
 		);
 		if (!ok) {
 			return false;
@@ -1010,11 +852,7 @@ function processTuple(
 /**
  * Literal membership check.
  */
-function processLiteral(
-	ctx: ValidateCtx,
-	current: FieldWorkItem,
-	spec: LiteralFieldSpec,
-): boolean {
+function processLiteral(ctx: ValidateCtx, current: FieldWorkItem, spec: LiteralFieldSpec): boolean {
 	for (const allowed of spec.values) {
 		if (current.value === allowed) {
 			return true;
@@ -1033,11 +871,7 @@ function processLiteral(
 /**
  * First-matching union arm (probe via iterative bail matches).
  */
-function processUnion(
-	ctx: ValidateCtx,
-	current: FieldWorkItem,
-	spec: UnionFieldSpec,
-): boolean {
+function processUnion(ctx: ValidateCtx, current: FieldWorkItem, spec: UnionFieldSpec): boolean {
 	for (const arm of spec.of) {
 		const armSpec = normalizeSpec(arm);
 		if (matches(current.value, armSpec, current.path, ctx.strict)) {
@@ -1045,20 +879,13 @@ function processUnion(
 		}
 	}
 
-	return noteIssue(
-		ctx,
-		makeIssue(current.path, "union", "does not match any union variant"),
-	);
+	return noteIssue(ctx, makeIssue(current.path, "union", "does not match any union variant"));
 }
 
 /**
  * Discriminant-selected object variant; enqueues object work.
  */
-function processDiscriminated(
-	ctx: ValidateCtx,
-	current: FieldWorkItem,
-	spec: DiscriminatedFieldSpec,
-): boolean {
+function processDiscriminated(ctx: ValidateCtx, current: FieldWorkItem, spec: DiscriminatedFieldSpec): boolean {
 	if (!isRecord(current.value)) {
 		return noteIssue(
 			ctx,
@@ -1085,12 +912,7 @@ function processDiscriminated(
 	if (typeof tag !== "string") {
 		return noteIssue(
 			ctx,
-			makeIssue(
-				discPath,
-				"discriminant",
-				"must be a string discriminant",
-				{ expected: "string" },
-			),
+			makeIssue(discPath, "discriminant", "must be a string discriminant", { expected: "string" }),
 		);
 	}
 
@@ -1145,10 +967,7 @@ export function validateObject(
  *
  * Shared by try/create APIs so callers avoid type assertions.
  */
-export function hasNoShapeIssues<T>(
-	value: unknown,
-	issues: readonly ValidationIssue[],
-): value is T {
+export function hasNoShapeIssues<T>(value: unknown, issues: readonly ValidationIssue[]): value is T {
 	return issues.length === 0;
 }
 
@@ -1157,10 +976,7 @@ export function hasNoShapeIssues<T>(
  *
  * Extra fields beyond the spec are permitted.
  */
-export function isShape<F extends Record<string, FieldDef>>(
-	value: unknown,
-	fields: F,
-): value is ShapeOf<F> {
+export function isShape<F extends Record<string, FieldDef>>(value: unknown, fields: F): value is ShapeOf<F> {
 	const issues = validateObject(value, fields, false);
 	return hasNoShapeIssues<ShapeOf<F>>(value, issues);
 }
@@ -1169,18 +985,14 @@ export function isShape<F extends Record<string, FieldDef>>(
  * Discriminated result of a non-throwing shape validation.
  */
 export type ShapeResult<T> =
-	| { readonly ok: true; readonly value: T }
-	| { readonly ok: false; readonly issues: readonly ValidationIssue[] };
+	{ readonly ok: true; readonly value: T } | { readonly ok: false; readonly issues: readonly ValidationIssue[] };
 
 /**
  * Validates without throwing. Returns the narrowed value or all issues.
  *
  * Extra fields beyond the spec are permitted.
  */
-export function tryShape<F extends Record<string, FieldDef>>(
-	value: unknown,
-	fields: F,
-): ShapeResult<ShapeOf<F>> {
+export function tryShape<F extends Record<string, FieldDef>>(value: unknown, fields: F): ShapeResult<ShapeOf<F>> {
 	const issues = validateObject(value, fields, false);
 	if (!hasNoShapeIssues<ShapeOf<F>>(value, issues)) {
 		return { ok: false, issues };

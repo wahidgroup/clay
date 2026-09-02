@@ -12,10 +12,7 @@ import { hasNoShapeIssues, validateObject } from "./shape.js";
 /**
  * Compiled shape validator with predicate, try, assert, and as APIs.
  */
-export interface ShapeValidator<
-	F extends Record<string, FieldDef>,
-	S extends boolean = false,
-> {
+export interface ShapeValidator<F extends Record<string, FieldDef>, S extends boolean = false> {
 	readonly fields: F;
 	readonly strict: S;
 	is(value: unknown): value is ShapeOf<F, S>;
@@ -66,11 +63,7 @@ export function assertStrictShape<F extends Record<string, FieldDef>>(
  *
  * Convenience wrapper around {@link assertShape} for inline use.
  */
-export function asShape<F extends Record<string, FieldDef>>(
-	value: unknown,
-	fields: F,
-	message?: string,
-): ShapeOf<F> {
+export function asShape<F extends Record<string, FieldDef>>(value: unknown, fields: F, message?: string): ShapeOf<F> {
 	assertShape(value, fields, message);
 	return value;
 }
@@ -90,10 +83,10 @@ export function asStrictShape<F extends Record<string, FieldDef>>(
 /**
  * Shared factory for soft and strict compiled validators.
  */
-function buildShapeValidator<
-	F extends Record<string, FieldDef>,
-	S extends boolean,
->(fields: F, strict: S): ShapeValidator<F, S> {
+function buildShapeValidator<F extends Record<string, FieldDef>, S extends boolean>(
+	fields: F,
+	strict: S,
+): ShapeValidator<F, S> {
 	Object.freeze(fields);
 
 	return {
@@ -132,17 +125,13 @@ function buildShapeValidator<
 /**
  * Builds a reusable non-strict shape validator (compile-once fields).
  */
-export function createShape<F extends Record<string, FieldDef>>(
-	fields: F,
-): ShapeValidator<F, false> {
+export function createShape<F extends Record<string, FieldDef>>(fields: F): ShapeValidator<F, false> {
 	return buildShapeValidator(fields, false);
 }
 
 /**
  * Builds a reusable strict shape validator (compile-once fields).
  */
-export function createStrictShape<F extends Record<string, FieldDef>>(
-	fields: F,
-): ShapeValidator<F, true> {
+export function createStrictShape<F extends Record<string, FieldDef>>(fields: F): ShapeValidator<F, true> {
 	return buildShapeValidator(fields, true);
 }
