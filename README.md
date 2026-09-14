@@ -104,7 +104,7 @@ const Profile = createShape({
 
 ## Advanced specs
 
-Union, discriminated, decimal, refine:
+Union, discriminated, record, decimal, refine:
 
 ```typescript
 import { createShape, Decimal } from "@wahidgroup/clay";
@@ -122,6 +122,12 @@ const Payment = createShape({
 			navigate: { url: "string" },
 		},
 	},
+	limits: {
+		type: "record",
+		keys: /^[a-z_]+$/,
+		values: { type: "number", integer: true, minimum: 0 },
+		maxEntries: 16,
+	},
 	amount: {
 		type: "decimal",
 		minimum: "0",
@@ -138,6 +144,7 @@ const Payment = createShape({
 Payment.is({
 	status: "ok",
 	event: { kind: "navigate", url: "/home" },
+	limits: { daily: 5 },
 	amount: "12.50",
 	memo: "thanks",
 });
@@ -145,6 +152,7 @@ Payment.is({
 Payment.is({
 	status: 1,
 	event: { kind: "click", x: 1, y: 2 },
+	limits: {},
 	amount: new Decimal("12.50"),
 	memo: "thanks",
 });
@@ -174,6 +182,20 @@ if (isOneOf(value, statuses)) {
 	/* "active" | "inactive" */
 }
 ```
+
+Every guard has an `assert` form that narrows in place and an `as` form that returns the narrowed value. Both throw `ValidationError` with code `TYPE_MISMATCH` and one issue, and take an optional message:
+
+```typescript
+import { asFiniteNumber, asArrayOf, assertPlainRecord, isString } from "@wahidgroup/clay";
+
+const port = asFiniteNumber(env.PORT, "PORT must be a finite number");
+const tags = asArrayOf(input.tags, isString);
+
+assertPlainRecord(body);
+/* body: Record<string, unknown> */
+```
+
+Guards that take arguments keep them before the message: `asOneOf(value, statuses)`, `asProperties(value, ["id", "name"])`, `asSystemError(err, "ENOENT")`. A rejected `Error` becomes the thrown error's `cause`.
 
 ## Errors
 
@@ -230,16 +252,22 @@ Package sets `sideEffects: false`.
 | --------------------- | -------------- | ------------------------- |
 | `isString`            | `guards`       | narrow to `string`        |
 | `isNumber`            | `guards`       | narrow to `number`        |
+| `isFiniteNumber`      | `guards`       | `number`, not NaN/Inf     |
+| `isNonEmptyString`    | `guards`       | `string` with length > 0  |
 | `isBoolean`           | `guards`       | narrow to `boolean`       |
 | `isNonNull`           | `guards`       | not null/undefined        |
 | `isDefined`           | `guards`       | not undefined             |
 | `isArray`             | `guards`       | narrow to `unknown[]`     |
+| `isArrayOf`           | `guards`       | every item passes a guard |
 | `isError`             | `guards`       | narrow to `Error`         |
 | `isRecord`            | `guards`       | `Record<string, unknown>` |
+| `isPlainRecord`       | `guards`       | record with plain proto   |
 | `hasProperties`       | `guards`       | own keys present          |
 | `isOneOf`             | `guards`       | literal union member      |
 | `isSystemError`       | `guards`       | `Error` with `code`       |
 | `assertNever`         | `guards`       | exhaustive check          |
+| `assert*`             | `assertions`   | guard or throw            |
+| `as*`                 | `assertions`   | narrowed value or throw   |
 | `isShape`             | `shape`        | soft predicate            |
 | `tryShape`            | `shape`        | value or issues           |
 | `tryStrictShape`      | `shape`        | strict try                |
@@ -269,6 +297,7 @@ Package sets `sideEffects: false`.
 | `ArrayFieldSpec`         | `shape`        | array + bounds                      |
 | `TupleFieldSpec`         | `shape`        | fixed tuple                         |
 | `ObjectFieldSpec`        | `shape`        | nested object                       |
+| `RecordFieldSpec`        | `shape`        | map with open keys                  |
 | `LiteralFieldSpec`       | `shape`        | literal set                         |
 | `UnionFieldSpec`         | `shape`        | first-match union                   |
 | `DiscriminatedFieldSpec` | `shape`        | tagged variants                     |

@@ -118,6 +118,25 @@ export interface ObjectFieldSpec extends HasRefine {
 }
 
 /**
+ * A field whose value must be a plain object used as a map, where every own
+ * key maps to a value matching the `values` spec.
+ *
+ * `keys` constrains each key when set. `minEntries` and `maxEntries` bound
+ * the number of own keys. An `object` spec fixes its field names, so a record
+ * is the spec for keys the author does not know in advance. A record that reads
+ * untrusted input sets `maxEntries`, because an unset bound admits any count.
+ */
+export interface RecordFieldSpec extends HasRefine {
+	readonly type: "record";
+	readonly values: FieldDef;
+	readonly keys?: RegExp;
+	readonly minEntries?: number;
+	readonly maxEntries?: number;
+	readonly optional?: boolean;
+	readonly nullable?: boolean;
+}
+
+/**
  * A field whose value must be one of a fixed set of literals.
  */
 export interface LiteralFieldSpec extends HasRefine {
@@ -160,6 +179,7 @@ export type FieldSpec =
 	| ArrayFieldSpec
 	| TupleFieldSpec
 	| ObjectFieldSpec
+	| RecordFieldSpec
 	| LiteralFieldSpec
 	| UnionFieldSpec
 	| DiscriminatedFieldSpec;
@@ -197,13 +217,15 @@ type InferFieldDefBase<F extends FieldDef, D extends number> = F extends Primiti
 					? InferTupleItems<F["items"], InferDepth[D]>
 					: F extends ObjectFieldSpec
 						? ShapeOf<F["shape"]>
-						: F extends LiteralFieldSpec
-							? F["values"][number]
-							: F extends UnionFieldSpec
-								? InferFieldDef<F["of"][number], InferDepth[D]>
-								: F extends DiscriminatedFieldSpec
-									? InferDiscriminated<F>
-									: never;
+						: F extends RecordFieldSpec
+							? Record<string, InferFieldDef<F["values"], InferDepth[D]>>
+							: F extends LiteralFieldSpec
+								? F["values"][number]
+								: F extends UnionFieldSpec
+									? InferFieldDef<F["of"][number], InferDepth[D]>
+									: F extends DiscriminatedFieldSpec
+										? InferDiscriminated<F>
+										: never;
 
 /**
  * Maps each tuple item spec to its inferred type.

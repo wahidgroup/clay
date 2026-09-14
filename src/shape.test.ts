@@ -818,6 +818,120 @@ describe("tuple fields", () => {
 	});
 });
 
+describe("prototype-named keys", () => {
+	const PROTOTYPE_KEYS = ["__proto__", "constructor", "toString", "hasOwnProperty"];
+
+	it.each(PROTOTYPE_KEYS)("strict mode refuses an undeclared %s key", (key) => {
+		const document: unknown = JSON.parse(`{"a":"x",${JSON.stringify(key)}:1}`);
+		expectFailurePaths(tryStrictShape(document, { a: "string" }), [key]);
+	});
+
+	it.each(PROTOTYPE_KEYS)("a discriminant naming %s is an unknown variant", (key) => {
+		const spec = {
+			event: { type: "discriminated", discriminant: "kind", variants: { click: { x: "number" } } },
+		} as const;
+
+		const issues = validateObject({ event: { kind: key } }, spec, true);
+		expectIssueCodes(issues, ["unknown_variant"]);
+	});
+
+	it("a record reads a __proto__ key as an entry, not as the prototype", () => {
+		const document: unknown = JSON.parse('{"limits":{"__proto__":"five"}}');
+		const spec = { limits: { type: "record", values: "number" } } as const;
+		expectFailurePaths(tryStrictShape(document, spec), ["limits.__proto__"]);
+	});
+});
+
+describe("record fields", () => {
+	const limits = {
+		limits: {
+			type: "record",
+			keys: /^[a-z_]+$/,
+			values: { type: "number", integer: true, minimum: 0 },
+			minEntries: 1,
+			maxEntries: 2,
+		},
+	} as const;
+
+	const nullProto: Record<string, unknown> = { daily: 5 };
+	Object.setPrototypeOf(nullProto, null);
+
+	it.each([
+		{ name: "accepts entries whose keys and values match", value: { limits: { daily: 5, weekly: 20 } }, ok: true },
+		{ name: "rejects an array", value: { limits: [5] }, ok: false },
+		{ name: "rejects a primitive", value: { limits: 5 }, ok: false },
+		{ name: "rejects a Map", value: { limits: new Map([["daily", 5]]) }, ok: false },
+		{ name: "rejects a Date", value: { limits: new Date() }, ok: false },
+		{ name: "rejects a class instance", value: { limits: new (class Limits {})() }, ok: false },
+		{ name: "accepts a null-prototype object", value: { limits: nullProto }, ok: true },
+		{ name: "rejects fewer entries than minEntries", value: { limits: {} }, ok: false },
+		{ name: "rejects more entries than maxEntries", value: { limits: { a: 1, b: 2, c: 3 } }, ok: false },
+		{ name: "rejects a value outside its spec", value: { limits: { daily: -1 } }, ok: false },
+		{ name: "rejects a key outside the pattern", value: { limits: { Daily: 5 } }, ok: false },
+	])("$name", ({ value, ok }) => {
+		expect(isShape(value, limits)).toBe(ok);
+	});
+
+	it("names the entry a value issue belongs to", () => {
+		const result = tryShape({ limits: { daily: "five" } }, limits);
+		expectFailurePaths(result, ["limits.daily"]);
+	});
+
+	it("reports a key outside the pattern with the pattern code", () => {
+		const issues = validateObject({ limits: { Daily: 5 } }, limits, false);
+		expectIssuePaths(issues, ["limits.Daily"]);
+		expectIssueCodes(issues, ["pattern"]);
+	});
+
+	it("reports an entry count outside its bounds with the length code", () => {
+		const issues = validateObject({ limits: { a: 1, b: 2, c: 3 } }, limits, false);
+		expectIssuePaths(issues, ["limits"]);
+		expectIssueCodes(issues, ["length"]);
+	});
+
+	it("counts a key outside the pattern toward the entry bounds", () => {
+		const issues = validateObject({ limits: { daily: 1, Weekly: 2, monthly: 3 } }, limits, false);
+		expectIssuePaths(issues, ["limits", "limits.Weekly"]);
+		expectIssueCodes(issues, ["length", "pattern"]);
+	});
+
+	it("accepts any key when no pattern is set", () => {
+		const open = { tiers: { type: "record", values: "string" } } as const;
+		expect(isShape({ tiers: { "Opus High": "claude-opus" } }, open)).toBe(true);
+	});
+
+	it("rejects an unknown key inside an object value under strict mode", () => {
+		const groups = {
+			groups: {
+				type: "record",
+				values: { type: "object", shape: { nodes: { type: "array", items: "string" } } },
+			},
+		} as const;
+
+		const result = tryStrictShape({ groups: { review: { nodes: ["a"], extra: true } } }, groups);
+		expectFailurePaths(result, ["groups.review.extra"]);
+	});
+
+	it("accepts null and absence when the spec allows them", () => {
+		const maybe = { tiers: { type: "record", values: "string", nullable: true, optional: true } } as const;
+		expect(isShape({ tiers: null }, maybe)).toBe(true);
+		expect(isShape({}, maybe)).toBe(true);
+	});
+
+	it("infers a string-keyed map of the value type", () => {
+		const result = tryStrictShape({ limits: { daily: 5 } }, limits);
+		if (!result.ok) {
+			throw new Error("the record did not parse");
+		}
+
+		const daily: number | undefined = result.value.limits.daily;
+		// @ts-expect-error A number entry does not assign to a string.
+		const wrong: string | undefined = result.value.limits.daily;
+		expect(daily).toBe(5);
+		expect(wrong).toBe(5);
+	});
+});
+
 describe("array bounds", () => {
 	const tags = {
 		tags: {

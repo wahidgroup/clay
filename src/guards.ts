@@ -21,6 +21,24 @@ export function isNumber(value: unknown): value is number {
 }
 
 /**
+ * Narrows an unknown value to a `number` that is not `NaN`, `Infinity`,
+ * or `-Infinity`.
+ */
+export function isFiniteNumber(value: unknown): value is number {
+	return Number.isFinite(value);
+}
+
+/**
+ * Narrows an unknown value to a `string` with at least one character.
+ *
+ * A whitespace-only string passes, so trim first when blank input is
+ * invalid.
+ */
+export function isNonEmptyString(value: unknown): value is string {
+	return isString(value) && value.length > 0;
+}
+
+/**
  * Narrows an unknown value to `boolean`.
  */
 export function isBoolean(value: unknown): value is boolean {
@@ -57,6 +75,16 @@ export function isArray(value: unknown): value is unknown[] {
 }
 
 /**
+ * Narrows an unknown value to an array whose every item passes `guard`.
+ *
+ * An empty array passes. Compose it with any guard, for example
+ * `isArrayOf(value, isString)` for `string[]`.
+ */
+export function isArrayOf<T>(value: unknown, guard: (item: unknown) => item is T): value is T[] {
+	return isArray(value) && value.every(guard);
+}
+
+/**
  * Narrows an unknown value to `Error`.
  */
 export function isError(value: unknown): value is Error {
@@ -81,6 +109,23 @@ function isObject(value: unknown): value is object {
  */
 export function isRecord(value: unknown): value is Record<string, unknown> {
 	return isObject(value) && !isArray(value);
+}
+
+/**
+ * Narrows an unknown value to a record whose prototype is
+ * `Object.prototype` or `null`.
+ *
+ * Object literals, `JSON.parse` output, and `Object.create(null)` pass.
+ * A `Map`, a `Date`, or a class instance fails, because its entries live
+ * outside its own enumerable keys.
+ */
+export function isPlainRecord(value: unknown): value is Record<string, unknown> {
+	if (!isRecord(value)) {
+		return false;
+	}
+
+	const proto: unknown = Object.getPrototypeOf(value);
+	return proto === Object.prototype || proto === null;
 }
 
 /**
@@ -119,10 +164,10 @@ export function isOneOf<T extends string | number | boolean>(value: unknown, val
 }
 
 /**
- * Checks whether `err` is an `Error` with a `code` property matching
- * the given string (for example `"ENOENT"` or an app-defined code).
+ * Narrows `err` to an `Error` whose `code` property equals `code`
+ * (for example `"ENOENT"` or an app-defined code).
  */
-export function isSystemError(err: unknown, code: string): boolean {
+export function isSystemError<C extends string>(err: unknown, code: C): err is Error & { readonly code: C } {
 	if (!(err instanceof Error) || !("code" in err)) {
 		return false;
 	}

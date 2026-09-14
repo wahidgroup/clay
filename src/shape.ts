@@ -16,11 +16,12 @@ import type {
 	ObjectFieldSpec,
 	PrimitiveFieldSpec,
 	PrimitiveType,
+	RecordFieldSpec,
 	ShapeOf,
 	TupleFieldSpec,
 	UnionFieldSpec,
 } from "./shape-types.js";
-import { isRecord } from "./guards.js";
+import { isPlainRecord, isRecord } from "./guards.js";
 import { Decimal } from "./shape-types.js";
 
 export type {
@@ -33,6 +34,7 @@ export type {
 	ObjectFieldSpec,
 	PrimitiveFieldSpec,
 	PrimitiveType,
+	RecordFieldSpec,
 	ShapeOf,
 	TupleFieldSpec,
 	UnionFieldSpec,
@@ -261,7 +263,7 @@ function processObjectWork(ctx: ValidateCtx, current: ObjectWorkItem): boolean {
 	}
 
 	for (const key of Object.keys(current.value)) {
-		if (key in current.fields) {
+		if (Object.hasOwn(current.fields, key)) {
 			continue;
 		}
 
@@ -310,6 +312,8 @@ function processFieldWork(ctx: ValidateCtx, current: FieldWorkItem): boolean {
 			path: current.path,
 		});
 		ok = true;
+	} else if (current.spec.type === "record") {
+		ok = processRecord(ctx, current, current.spec);
 	} else if (current.spec.type === "literal") {
 		ok = processLiteral(ctx, current, current.spec);
 	} else if (current.spec.type === "union") {
@@ -850,6 +854,77 @@ function processTuple(ctx: ValidateCtx, current: FieldWorkItem, spec: TupleField
 }
 
 /**
+ * Record type, entry bounds, and key pattern, then enqueue value checks.
+ */
+function processRecord(ctx: ValidateCtx, current: FieldWorkItem, spec: RecordFieldSpec): boolean {
+	if (!isPlainRecord(current.value)) {
+		return noteIssue(
+			ctx,
+			makeIssue(current.path, "type", "must be an object", {
+				expected: "object",
+			}),
+		);
+	}
+
+	const keys = Object.keys(current.value);
+	if (spec.minEntries !== undefined && keys.length < spec.minEntries) {
+		const ok = noteIssue(
+			ctx,
+			makeIssue(current.path, "length", `must have at least ${spec.minEntries} entries, got ${keys.length}`, {
+				expected: `minEntries:${spec.minEntries}`,
+			}),
+		);
+		if (!ok) {
+			return false;
+		}
+	}
+
+	if (spec.maxEntries !== undefined && keys.length > spec.maxEntries) {
+		const ok = noteIssue(
+			ctx,
+			makeIssue(current.path, "length", `must have at most ${spec.maxEntries} entries, got ${keys.length}`, {
+				expected: `maxEntries:${spec.maxEntries}`,
+			}),
+		);
+		if (!ok) {
+			return false;
+		}
+	}
+
+	const valueSpec = normalizeSpec(spec.values);
+	for (let i = keys.length - 1; i >= 0; i--) {
+		const key = keys[i];
+		if (key === undefined) {
+			continue;
+		}
+
+		const entryPath = childPath(current.path, key);
+		if (spec.keys && !matchesPattern(key, spec.keys)) {
+			const ok = noteIssue(
+				ctx,
+				makeIssue(entryPath, "pattern", `key must match ${String(spec.keys)}`, {
+					expected: String(spec.keys),
+				}),
+			);
+			if (!ok) {
+				return false;
+			}
+
+			continue;
+		}
+
+		ctx.stack.push({
+			kind: "field",
+			value: Reflect.get(current.value, key),
+			spec: valueSpec,
+			path: entryPath,
+		});
+	}
+
+	return true;
+}
+
+/**
  * Literal membership check.
  */
 function processLiteral(ctx: ValidateCtx, current: FieldWorkItem, spec: LiteralFieldSpec): boolean {
@@ -916,7 +991,10 @@ function processDiscriminated(ctx: ValidateCtx, current: FieldWorkItem, spec: Di
 		);
 	}
 
-	const variant = spec.variants[tag];
+	let variant: Record<string, FieldDef> | undefined;
+	if (Object.hasOwn(spec.variants, tag)) {
+		variant = spec.variants[tag];
+	}
 	if (variant === undefined) {
 		return noteIssue(
 			ctx,
