@@ -4,12 +4,16 @@ import {
 	assertNever,
 	hasProperties,
 	isArray,
+	isArrayOf,
 	isBoolean,
 	isDefined,
 	isError,
+	isFiniteNumber,
+	isNonEmptyString,
 	isNonNull,
 	isNumber,
 	isOneOf,
+	isPlainRecord,
 	isRecord,
 	isString,
 	isSystemError,
@@ -33,6 +37,25 @@ describe("isRecord", () => {
 		{ name: "empty array", value: [], expected: false },
 	])("returns $expected for $name", ({ value, expected }) => {
 		expect(isRecord(value)).toBe(expected);
+	});
+});
+
+describe("isPlainRecord", () => {
+	const nullProto: Record<string, unknown> = {};
+	Object.setPrototypeOf(nullProto, null);
+	const parsed: unknown = JSON.parse('{"a":1}');
+
+	it.each([
+		{ name: "object literal", value: { a: 1 }, expected: true },
+		{ name: "parsed JSON object", value: parsed, expected: true },
+		{ name: "null-prototype object", value: nullProto, expected: true },
+		{ name: "Map", value: new Map([["a", 1]]), expected: false },
+		{ name: "Date", value: new Date(), expected: false },
+		{ name: "class instance", value: new (class Point {})(), expected: false },
+		{ name: "array", value: [], expected: false },
+		{ name: "null", value: null, expected: false },
+	])("returns $expected for $name", ({ value, expected }) => {
+		expect(isPlainRecord(value)).toBe(expected);
 	});
 });
 
@@ -85,6 +108,21 @@ describeBooleanGuard("isNumber", isNumber, [
 	{ name: "null", value: null, expected: false },
 ]);
 
+describeBooleanGuard("isFiniteNumber", isFiniteNumber, [
+	{ name: "zero", value: 0, expected: true },
+	{ name: "negative fraction", value: -1.5, expected: true },
+	{ name: "NaN", value: Number.NaN, expected: false },
+	{ name: "Infinity", value: Number.POSITIVE_INFINITY, expected: false },
+	{ name: "numeric string", value: "42", expected: false },
+]);
+
+describeBooleanGuard("isNonEmptyString", isNonEmptyString, [
+	{ name: "one character", value: "a", expected: true },
+	{ name: "whitespace only", value: " ", expected: true },
+	{ name: "empty string", value: "", expected: false },
+	{ name: "number", value: 1, expected: false },
+]);
+
 describeBooleanGuard("isBoolean", isBoolean, [
 	{ name: "true", value: true, expected: true },
 	{ name: "false", value: false, expected: true },
@@ -117,6 +155,17 @@ describeBooleanGuard("isArray", isArray, [
 	{ name: "string", value: "abc", expected: false },
 	{ name: "null", value: null, expected: false },
 ]);
+
+describe("isArrayOf", () => {
+	it.each([
+		{ name: "every item passes", value: ["a", "b"], expected: true },
+		{ name: "empty array", value: [], expected: true },
+		{ name: "one item fails", value: ["a", 1], expected: false },
+		{ name: "non-array", value: "ab", expected: false },
+	])("returns $expected for $name", ({ value, expected }) => {
+		expect(isArrayOf(value, isString)).toBe(expected);
+	});
+});
 
 describeBooleanGuard("isError", isError, [
 	{ name: "Error", value: new Error("e"), expected: true },
